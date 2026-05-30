@@ -1,4 +1,4 @@
-# Rankforge — SEO Page Auditor Prototype (FR-02)
+# Rankforge — SEO Page Auditor
 
 AI-powered SEO page audit: paste a URL, crawl with Playwright, score against a rubric, and get Claude-powered recommendations.
 
