@@ -1,77 +1,111 @@
-# Rankforge — SEO Page Auditor
+# Rankforge
 
-AI-powered SEO page audit: paste a URL, crawl with Playwright, score against a rubric, and get Claude-powered recommendations.
+Monorepo for Rankforge — user auth, project workspaces (FR-01), and SEO tooling (FR-02+).
 
-## Architecture
+## Structure
 
-- **Frontend** (`frontend/`): Next.js 14, TypeScript, TailwindCSS, shadcn/ui, Recharts
-- **Backend** (`backend/`): FastAPI, Playwright, BeautifulSoup, Anthropic Claude API
+```
+rankforge/
+├── apps/
+│   ├── web/                  # Next.js 14 frontend
+│   └── api/                  # FastAPI backend
+├── mcp/
+│   ├── page-auditor/         # audit_page tool (port 3001)
+│   ├── serp/                 # fetch_serp tool (port 3002)
+│   └── content-db/         # save_brief / list_briefs (port 3004)
+├── supabase/
+│   ├── config.toml
+│   └── migrations/
+│       └── 0001_initial_schema.sql
+└── .gitignore
+```
 
 ## Prerequisites
 
 - Node.js 18+
 - Python 3.11+
-- [Anthropic API key](https://console.anthropic.com/) (optional — audits work without AI summary enrichment)
+- [Supabase CLI](https://supabase.com/docs/guides/cli)
+- Supabase project (hosted or local)
 
-## Setup
+## Environment variables
 
-### Backend
+Create these locally — **never commit** them (see `.gitignore`).
 
-```bash
-cd backend
-python -m venv .venv
+### `apps/web/.env.local`
 
-# Windows
-.venv\Scripts\activate
-
-pip install -r requirements.txt
-playwright install chromium
-
-# Create backend/.env (not committed) with your API key:
-# ANTHROPIC_API_KEY=sk-ant-...
-
-uvicorn main:app --reload --port 8000
+```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-### Frontend
+### `apps/api/.env`
+
+```
+SUPABASE_URL=
+SUPABASE_JWT_SECRET=
+DATABASE_URL=postgresql://...
+```
+
+Use only the **anon** key in the frontend. The **JWT secret** and **service role** key stay on the backend only; never expose the service role key in client code.
+
+## Supabase
 
 ```bash
-cd frontend
+supabase login
+supabase link --project-ref <project-ref>
+supabase db push
+```
+
+Configure Google OAuth in Supabase Auth and Google Cloud Console (redirect URIs for `/auth/callback`).
+
+## Backend
+
+```bash
+cd apps/api
+python -m venv venv
+# Windows: venv\Scripts\activate
+pip install -r requirements.txt
+# Load apps/api/.env (SUPABASE_JWT_SECRET, DATABASE_URL)
+uvicorn apps.api.main:app --reload --port 8000
+```
+
+Run from the **repository root** so `apps.api` imports resolve.
+
+## Frontend
+
+```bash
+cd apps/web
 npm install
-# Optional: create frontend/.env.local (not committed)
-# NEXT_PUBLIC_API_URL=http://localhost:8000
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The frontend calls the backend at `http://localhost:8000` by default (`NEXT_PUBLIC_API_URL`).
+Open [http://localhost:3000](http://localhost:3000).
 
-## API
+## Tests
 
-`POST /api/audit`
+From the repository root:
 
-```json
-{ "url": "https://example.com" }
+```bash
+cd apps/api
+pip install -r requirements.txt
+cd ../..
+pytest apps/api/tests -q
 ```
 
-Returns structured audit JSON: meta tags, headings, word count, links, images, SEO score (0–100), rubric issues, and `ai_summary`.
+## MCP servers
 
-`GET /health` — backend health check.
+See [mcp/README.md](mcp/README.md) for running page auditor, SERP, and content DB tools via stdio (Cursor) or HTTP (Claude API connector).
 
-## SEO Scoring
+## FR-01 acceptance criteria
 
-Score is calculated from 100 points across title, meta description, H1 count, heading hierarchy, word count, image alt text, internal/external links, and heading depth (H2/H3). Failed checks appear as issues with severity and suggested fixes.
+- [ ] Register / sign in (email + Google OAuth → `/dashboard`)
+- [ ] Create two named projects from the dashboard
+- [ ] Audits scoped per project (API: `POST/GET /api/projects/{id}/audits`)
+- [ ] `/dashboard` without session → `/login`
+- [ ] `GET /api/projects` without token → 403; invalid JWT → 401
+- [ ] `supabase db push` applies `0001_initial_schema.sql` cleanly
 
-## Project Structure
+## Legacy FR-02 prototype
 
-```
-Rankforge/
-├── backend/
-│   ├── main.py
-│   ├── requirements.txt
-│   └── .env.example
-└── frontend/
-    └── src/
-        ├── app/page.tsx
-        ├── components/   # audit UI
-        └── lib/          # types, API client
-```
+The previous root-level `backend/` and `frontend/` SEO auditor prototype was replaced by this layout. FR-02 will be integrated under `apps/api` and the project **Audits** tab in a later phase.

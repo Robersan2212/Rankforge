@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "rankforge-page-auditor": {
+      "command": "npx",
+      "args": ["tsx", "src/stdio.ts"],
+      "cwd": "${workspaceFolder}/mcp/page-auditor"
+    },
+    "rankforge-serp": {
+      "command": "npx",
+      "args": ["tsx", "src/stdio.ts"],
+      "cwd": "${workspaceFolder}/mcp/serp"
+    },
+    "rankforge-content-db": {
+      "command": "npx",
+      "args": ["tsx", "src/stdio.ts"],
+      "cwd": "${workspaceFolder}/mcp/content-db"
+    }
+  }
+}
