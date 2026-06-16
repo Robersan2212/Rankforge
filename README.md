@@ -6,6 +6,9 @@ Monorepo for Rankforge — user auth, project workspaces (FR-01), and SEO toolin
 
 ```
 rankforge/
+├── .cursor/
+│   ├── mcp.json              # MCP server config (stdio)
+│   └── skills/               # Supabase agent skills for Cursor
 ├── apps/
 │   ├── web/                  # Next.js 14 frontend
 │   └── api/                  # FastAPI backend
@@ -42,12 +45,11 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 ### `apps/api/.env`
 
 ```
-SUPABASE_URL=
-SUPABASE_JWT_SECRET=
+SUPABASE_URL=https://<project-ref>.supabase.co
 DATABASE_URL=postgresql://...
 ```
 
-Use only the **anon** key in the frontend. The **JWT secret** and **service role** key stay on the backend only; never expose the service role key in client code.
+`SUPABASE_JWT_SECRET` is **optional** — only needed if your project still uses the legacy HS256 secret. New Supabase projects with **ECC signing keys** verify tokens automatically via JWKS using `SUPABASE_URL`.
 
 ## Supabase
 
@@ -92,6 +94,16 @@ pip install -r requirements.txt
 cd ../..
 pytest apps/api/tests -q
 ```
+
+## Agent skills (Cursor)
+
+Supabase skills live in [`.cursor/skills/`](.cursor/skills/). To refresh from upstream:
+
+```bash
+npx skills add supabase/agent-skills
+```
+
+Then copy from `.agents/skills/` into `.cursor/skills/` if the installer recreates `.agents/`.
 
 ## MCP servers
 

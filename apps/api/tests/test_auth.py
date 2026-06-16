@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from apps.api.main import app
 from apps.api.routers.projects import get_db
 
-os.environ.setdefault("SUPABASE_JWT_SECRET", "test-jwt-secret-for-unit-tests")
+os.environ.setdefault("SUPABASE_URL", "https://test-project.supabase.co")
 
 client = TestClient(app)
 
@@ -43,7 +43,7 @@ def test_invalid_token_returns_401():
 def test_valid_token_reaches_handler():
     fake_payload = {"sub": "user-uuid-123", "email": "test@example.com"}
     app.dependency_overrides[get_db] = _mock_get_db
-    with patch("apps.api.auth.jwt.decode", return_value=fake_payload):
+    with patch("apps.api.auth._decode_token", return_value=fake_payload):
         response = client.get(
             "/api/projects",
             headers={"Authorization": "Bearer fake-but-mocked"},

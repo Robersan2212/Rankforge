@@ -32,3 +32,6 @@ secrets.json
 # Supabase local
 supabase/.branches/
 supabase/.temp/
+
+# Agent skills installer cache (canonical copy is .cursor/skills/)
+.agents/

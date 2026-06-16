@@ -1,10 +1,56 @@
 import os
+from functools import lru_cache
 
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+from jwt import PyJWKClient
 
 bearer_scheme = HTTPBearer()
+
+
+@lru_cache
+def _jwks_client() -> PyJWKClient:
+    base = os.environ.get("SUPABASE_URL", "").rstrip("/")
+    if not base:
+        raise RuntimeError("SUPABASE_URL environment variable is required")
+    return PyJWKClient(
+        f"{base}/auth/v1/.well-known/jwks.json",
+        cache_keys=True,
+    )
+
+
+def _decode_token(token: str) -> dict:
+    """Verify Supabase access tokens (ECC JWKS or legacy HS256 secret)."""
+    errors: list[str] = []
+
+    # New Supabase projects: ECC / RS256 signing keys via JWKS
+    try:
+        signing_key = _jwks_client().get_signing_key_from_jwt(token)
+        return jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["ES256", "RS256"],
+            audience="authenticated",
+        )
+    except jwt.PyJWTError as exc:
+        errors.append(f"JWKS: {exc}")
+
+    # Older projects: legacy HS256 shared secret (optional)
+    legacy_secret = os.environ.get("SUPABASE_JWT_SECRET")
+    if legacy_secret:
+        try:
+            return jwt.decode(
+                token,
+                legacy_secret,
+                algorithms=["HS256"],
+                audience="authenticated",
+                options={"verify_aud": False},
+            )
+        except jwt.PyJWTError as exc:
+            errors.append(f"legacy: {exc}")
+
+    raise jwt.InvalidTokenError("; ".join(errors) or "invalid token")
 
 
 def get_current_user(
@@ -12,17 +58,12 @@ def get_current_user(
 ):
     token = credentials.credentials
     try:
-        payload = jwt.decode(
-            token,
-            os.environ["SUPABASE_JWT_SECRET"],
-            algorithms=["HS256"],
-            options={"verify_aud": False},
-        )
+        payload = _decode_token(token)
         user_id: str | None = payload.get("sub")
         if user_id is None:
             raise HTTPException(status_code=401, detail="Invalid token")
         return {"id": user_id, "email": payload.get("email")}
-    except JWTError:
+    except jwt.PyJWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
