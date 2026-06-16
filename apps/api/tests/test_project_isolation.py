@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from apps.api.main import app
 from apps.api.routers.projects import get_db
 
-os.environ.setdefault("SUPABASE_JWT_SECRET", "test-jwt-secret-for-unit-tests")
+os.environ.setdefault("SUPABASE_URL", "https://test-project.supabase.co")
 
 client = TestClient(app)
 USER_ID = "user-uuid-123"
@@ -60,7 +60,7 @@ def test_audits_isolated_by_project():
 
     app.dependency_overrides[get_db] = mock_get_db
 
-    with patch("apps.api.auth.jwt.decode", return_value=fake_payload):
+    with patch("apps.api.auth._decode_token", return_value=fake_payload):
         res_a = client.get(
             f"/api/projects/{PROJECT_A}/audits",
             headers={"Authorization": "Bearer token"},
