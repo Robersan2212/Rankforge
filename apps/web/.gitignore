@@ -1,5 +1,6 @@
-# env files (including examples — never commit)
+# env files (never commit secrets; .env.example is a template)
 .env*
+!.env.example
 
 # dependencies / build
 /node_modules

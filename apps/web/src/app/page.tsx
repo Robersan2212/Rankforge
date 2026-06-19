@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/server";
+import { isDevAuthBypassEnabled } from "@/lib/dev-auth";
+import { getAuthenticatedUser } from "@/lib/server-auth";
 
 export default async function HomePage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  if (isDevAuthBypassEnabled()) {
+    redirect("/dashboard");
+  }
+
+  const user = await getAuthenticatedUser();
 
   if (user) {
     redirect("/dashboard");
