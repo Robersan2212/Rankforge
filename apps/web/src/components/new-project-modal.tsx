@@ -3,7 +3,16 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface NewProjectModalProps {
   open: boolean;
@@ -16,7 +25,12 @@ export function NewProjectModal({ open, onClose }: NewProjectModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  if (!open) return null;
+  function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen) {
+      setError(null);
+      onClose();
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,27 +62,23 @@ export function NewProjectModal({ open, onClose }: NewProjectModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div
-        className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-lg"
-        role="dialog"
-        aria-labelledby="new-project-title"
-      >
-        <h2 id="new-project-title" className="text-lg font-semibold">
-          New project
-        </h2>
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <div>
-            <label htmlFor="project-name" className="text-sm font-medium">
-              Project name
-            </label>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>New project</DialogTitle>
+          <DialogDescription>
+            Create a workspace to isolate audits, briefs, drafts, and keywords.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="project-name">Project name</Label>
             <Input
               id="project-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="My SEO site"
               required
-              className="mt-1"
             />
           </div>
           {error && (
@@ -76,16 +86,16 @@ export function NewProjectModal({ open, onClose }: NewProjectModalProps) {
               {error}
             </p>
           )}
-          <div className="flex justify-end gap-2">
+          <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading || !name.trim()}>
               {loading ? "Creating…" : "Create"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
