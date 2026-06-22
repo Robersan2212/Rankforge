@@ -10,14 +10,15 @@ import { DashboardMetricRow } from "@/components/workspace/organisms/metric-row"
 import { RecentActivityList } from "@/components/workspace/organisms/recent-activity-list";
 import { SeoChartPanel } from "@/components/workspace/organisms/seo-chart-panel";
 import { WorkspaceHeader } from "@/components/workspace/organisms/workspace-header";
-import type { Project } from "@/lib/types";
+import type { Project, UserStats } from "@/lib/types";
 
 interface DashboardViewProps {
   projects: Project[];
+  stats: UserStats;
   userEmail: string;
 }
 
-export function DashboardView({ projects, userEmail }: DashboardViewProps) {
+export function DashboardView({ projects, stats, userEmail }: DashboardViewProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -74,7 +75,7 @@ export function DashboardView({ projects, userEmail }: DashboardViewProps) {
         }
       />
 
-      <DashboardMetricRow projectCount={projects.length} />
+      <DashboardMetricRow projectCount={projects.length} stats={stats} />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">

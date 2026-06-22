@@ -1,3 +1,4 @@
+import json
 import os
 import re
 from typing import Any
@@ -14,6 +15,25 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
+
+
+class AuditCreate(BaseModel):
+    url: str = Field(min_length=1)
+
+
+class BriefCreate(BaseModel):
+    keyword: str = Field(min_length=1)
+    title: str | None = None
+
+
+class DraftCreate(BaseModel):
+    title: str = Field(min_length=1)
+    content: str = ""
+    brief_id: str | None = None
+
+
+class KeywordCreate(BaseModel):
+    keyword: str = Field(min_length=1)
 
 
 def slugify(name: str) -> str:
@@ -39,6 +59,43 @@ def _row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
     return data
 
 
+async def _require_owned_project(db, project_id: str, user_id: str) -> None:
+    project = await db.fetchrow(
+        "SELECT id FROM public.projects WHERE id = $1 AND user_id = $2",
+        project_id,
+        user_id,
+    )
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+
+@router.get("/stats")
+async def get_user_stats(
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    row = await db.fetchrow(
+        """
+        SELECT
+          (SELECT COUNT(*)::int FROM public.projects WHERE user_id = $1) AS projects,
+          (SELECT COUNT(*)::int FROM public.audits a
+             JOIN public.projects p ON p.id = a.project_id
+             WHERE p.user_id = $1) AS audits,
+          (SELECT COUNT(*)::int FROM public.briefs b
+             JOIN public.projects p ON p.id = b.project_id
+             WHERE p.user_id = $1) AS briefs,
+          (SELECT COUNT(*)::int FROM public.drafts d
+             JOIN public.projects p ON p.id = d.project_id
+             WHERE p.user_id = $1) AS drafts,
+          (SELECT COUNT(*)::int FROM public.tracked_keywords k
+             JOIN public.projects p ON p.id = k.project_id
+             WHERE p.user_id = $1) AS keywords
+        """,
+        current_user["id"],
+    )
+    return dict(row)
+
+
 @router.get("")
 async def list_projects(
     current_user=Depends(get_current_user),
@@ -49,22 +106,6 @@ async def list_projects(
         current_user["id"],
     )
     return [_row_to_dict(r) for r in rows]
-
-
-@router.get("/{project_id}")
-async def get_project(
-    project_id: str,
-    current_user=Depends(get_current_user),
-    db=Depends(get_db),
-):
-    row = await db.fetchrow(
-        "SELECT * FROM public.projects WHERE id = $1 AND user_id = $2",
-        project_id,
-        current_user["id"],
-    )
-    if row is None:
-        raise HTTPException(status_code=404, detail="Project not found")
-    return _row_to_dict(row)
 
 
 @router.post("", status_code=201)
@@ -90,6 +131,22 @@ async def create_project(
         )
 
 
+@router.get("/{project_id}")
+async def get_project(
+    project_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    row = await db.fetchrow(
+        "SELECT * FROM public.projects WHERE id = $1 AND user_id = $2",
+        project_id,
+        current_user["id"],
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return _row_to_dict(row)
+
+
 @router.delete("/{project_id}", status_code=204)
 async def delete_project(
     project_id: str,
@@ -105,29 +162,38 @@ async def delete_project(
         raise HTTPException(status_code=404, detail="Project not found")
 
 
+@router.get("/{project_id}/stats")
+async def get_project_stats(
+    project_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    row = await db.fetchrow(
+        """
+        SELECT
+          (SELECT COUNT(*)::int FROM public.audits WHERE project_id = $1) AS audits,
+          (SELECT COUNT(*)::int FROM public.briefs WHERE project_id = $1) AS briefs,
+          (SELECT COUNT(*)::int FROM public.drafts WHERE project_id = $1) AS drafts,
+          (SELECT COUNT(*)::int FROM public.tracked_keywords WHERE project_id = $1) AS keywords
+        """,
+        project_id,
+    )
+    return dict(row)
+
+
 @router.get("/{project_id}/audits")
 async def list_project_audits(
     project_id: str,
     current_user=Depends(get_current_user),
     db=Depends(get_db),
 ):
-    project = await db.fetchrow(
-        "SELECT id FROM public.projects WHERE id = $1 AND user_id = $2",
-        project_id,
-        current_user["id"],
-    )
-    if project is None:
-        raise HTTPException(status_code=404, detail="Project not found")
-
+    await _require_owned_project(db, project_id, current_user["id"])
     rows = await db.fetch(
         "SELECT * FROM public.audits WHERE project_id = $1 ORDER BY created_at DESC",
         project_id,
     )
     return [_row_to_dict(r) for r in rows]
-
-
-class AuditCreate(BaseModel):
-    url: str = Field(min_length=1)
 
 
 @router.post("/{project_id}/audits", status_code=201)
@@ -137,18 +203,109 @@ async def create_project_audit(
     current_user=Depends(get_current_user),
     db=Depends(get_db),
 ):
-    project = await db.fetchrow(
-        "SELECT id FROM public.projects WHERE id = $1 AND user_id = $2",
-        project_id,
-        current_user["id"],
-    )
-    if project is None:
-        raise HTTPException(status_code=404, detail="Project not found")
-
+    await _require_owned_project(db, project_id, current_user["id"])
     row = await db.fetchrow(
         """INSERT INTO public.audits (project_id, url, results, seo_score)
            VALUES ($1, $2, '{}'::jsonb, 0) RETURNING *""",
         project_id,
         body.url,
+    )
+    return _row_to_dict(row)
+
+
+@router.get("/{project_id}/briefs")
+async def list_project_briefs(
+    project_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    rows = await db.fetch(
+        "SELECT * FROM public.briefs WHERE project_id = $1 ORDER BY created_at DESC",
+        project_id,
+    )
+    return [_row_to_dict(r) for r in rows]
+
+
+@router.post("/{project_id}/briefs", status_code=201)
+async def create_project_brief(
+    project_id: str,
+    body: BriefCreate,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    content = json.dumps({"title": body.title}) if body.title else None
+    row = await db.fetchrow(
+        """INSERT INTO public.briefs (project_id, keyword, content)
+           VALUES ($1, $2, $3::jsonb) RETURNING *""",
+        project_id,
+        body.keyword,
+        content,
+    )
+    return _row_to_dict(row)
+
+
+@router.get("/{project_id}/drafts")
+async def list_project_drafts(
+    project_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    rows = await db.fetch(
+        "SELECT * FROM public.drafts WHERE project_id = $1 ORDER BY updated_at DESC",
+        project_id,
+    )
+    return [_row_to_dict(r) for r in rows]
+
+
+@router.post("/{project_id}/drafts", status_code=201)
+async def create_project_draft(
+    project_id: str,
+    body: DraftCreate,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    row = await db.fetchrow(
+        """INSERT INTO public.drafts (project_id, brief_id, title, content)
+           VALUES ($1, $2::uuid, $3, $4) RETURNING *""",
+        project_id,
+        body.brief_id,
+        body.title,
+        body.content,
+    )
+    return _row_to_dict(row)
+
+
+@router.get("/{project_id}/keywords")
+async def list_project_keywords(
+    project_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    rows = await db.fetch(
+        """SELECT * FROM public.tracked_keywords
+           WHERE project_id = $1 ORDER BY created_at DESC""",
+        project_id,
+    )
+    return [_row_to_dict(r) for r in rows]
+
+
+@router.post("/{project_id}/keywords", status_code=201)
+async def create_project_keyword(
+    project_id: str,
+    body: KeywordCreate,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    row = await db.fetchrow(
+        """INSERT INTO public.tracked_keywords (project_id, keyword)
+           VALUES ($1, $2) RETURNING *""",
+        project_id,
+        body.keyword,
     )
     return _row_to_dict(row)

@@ -20,29 +20,40 @@ export function isProjectSection(value: string): value is ProjectSection {
   return PROJECT_SECTIONS.includes(value as ProjectSection);
 }
 
+export const SECTION_API_PATH: Record<ProjectSection, string> = {
+  audits: "audits",
+  briefs: "briefs",
+  editor: "drafts",
+  keywords: "keywords",
+};
+
 export const SECTION_CONFIG: Record<
   ProjectSection,
-  { label: string; icon: LucideIcon; description: string }
+  { label: string; icon: LucideIcon; description: string; singular: string }
 > = {
   audits: {
     label: "Audits",
     icon: Search,
-    description: "Run your first page audit (FR-02).",
+    singular: "audit",
+    description: "Save page audits scoped to this project.",
   },
   briefs: {
     label: "Briefs",
     icon: FileText,
-    description: "Content briefs — coming in a later phase.",
+    singular: "brief",
+    description: "Content briefs stored per project.",
   },
   editor: {
     label: "Editor",
     icon: PenLine,
-    description: "Draft editor — coming in a later phase.",
+    singular: "draft",
+    description: "Content drafts stored per project.",
   },
   keywords: {
     label: "Keywords",
     icon: Tags,
-    description: "Tracked keywords — coming in a later phase.",
+    singular: "keyword",
+    description: "Tracked keywords stored per project.",
   },
 };
 

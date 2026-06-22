@@ -1,11 +1,16 @@
 import { FileText, FolderKanban, Search, Tags } from "lucide-react";
 import { MetricCard } from "@/components/workspace/molecules/metric-card";
+import type { ProjectStats, UserStats } from "@/lib/types";
 
 interface DashboardMetricRowProps {
   projectCount: number;
+  stats: UserStats;
 }
 
-export function DashboardMetricRow({ projectCount }: DashboardMetricRowProps) {
+export function DashboardMetricRow({
+  projectCount,
+  stats,
+}: DashboardMetricRowProps) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <MetricCard
@@ -17,21 +22,21 @@ export function DashboardMetricRow({ projectCount }: DashboardMetricRowProps) {
       />
       <MetricCard
         label="Audits"
-        value={0}
-        delta="No data yet"
+        value={stats.audits}
+        delta={stats.audits === 0 ? "No data yet" : "Across all projects"}
         variant="blue"
         icon={Search}
       />
       <MetricCard
         label="Briefs"
-        value={0}
-        delta="No data yet"
+        value={stats.briefs}
+        delta={stats.briefs === 0 ? "No data yet" : "Across all projects"}
         icon={FileText}
       />
       <MetricCard
         label="Keywords"
-        value={0}
-        delta="No data yet"
+        value={stats.keywords}
+        delta={stats.keywords === 0 ? "No data yet" : "Across all projects"}
         icon={Tags}
       />
     </div>
@@ -39,36 +44,37 @@ export function DashboardMetricRow({ projectCount }: DashboardMetricRowProps) {
 }
 
 interface ProjectMetricRowProps {
+  stats: ProjectStats;
   sectionLabel?: string;
 }
 
-export function ProjectMetricRow({ sectionLabel }: ProjectMetricRowProps) {
+export function ProjectMetricRow({ stats, sectionLabel }: ProjectMetricRowProps) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <MetricCard
         label="Audits"
-        value={0}
-        delta="No data yet"
+        value={stats.audits}
+        delta={stats.audits === 0 ? "No data yet" : "In this project"}
         variant="lavender"
         icon={Search}
       />
       <MetricCard
         label="Briefs"
-        value={0}
-        delta="No data yet"
+        value={stats.briefs}
+        delta={stats.briefs === 0 ? "No data yet" : "In this project"}
         variant="blue"
         icon={FileText}
       />
       <MetricCard
         label="Drafts"
-        value={0}
-        delta="No data yet"
+        value={stats.drafts}
+        delta={stats.drafts === 0 ? "No data yet" : "In this project"}
         icon={FileText}
       />
       <MetricCard
         label="Keywords"
-        value={0}
-        delta={sectionLabel ? `Viewing ${sectionLabel}` : "No data yet"}
+        value={stats.keywords}
+        delta={sectionLabel ? `Viewing ${sectionLabel}` : "In this project"}
         icon={Tags}
       />
     </div>
