@@ -10,6 +10,7 @@ export async function proxyApiRequest(path: string, init?: RequestInit) {
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
+    cache: "no-store",
     ...init,
     headers: {
       ...init?.headers,

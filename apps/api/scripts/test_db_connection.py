@@ -26,7 +26,7 @@ async def main() -> int:
         print("FAIL: DATABASE_URL missing")
         return 1
     try:
-        conn = await asyncpg.connect(url, timeout=15)
+        conn = await asyncpg.connect(url, timeout=15, ssl="require", statement_cache_size=0)
         tables = await conn.fetch(
             "SELECT table_name FROM information_schema.tables "
             "WHERE table_schema = 'public' ORDER BY table_name"

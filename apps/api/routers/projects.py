@@ -9,6 +9,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from apps.api.auth import get_current_user
+from apps.api.env import load_env_file
+
+load_env_file()
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -44,7 +47,17 @@ def slugify(name: str) -> str:
 
 
 async def get_db():
-    conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise HTTPException(
+            status_code=500,
+            detail="DATABASE_URL is not configured on the API server",
+        )
+    conn = await asyncpg.connect(
+        database_url,
+        ssl="require",
+        statement_cache_size=0,
+    )
     try:
         yield conn
     finally:
@@ -57,6 +70,16 @@ def _row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
         if isinstance(value, UUID):
             data[key] = str(value)
     return data
+
+
+async def _ensure_user_profile(db, user_id: str, email: str) -> None:
+    await db.execute(
+        """INSERT INTO public.users (id, email)
+           VALUES ($1, $2)
+           ON CONFLICT (id) DO NOTHING""",
+        user_id,
+        email or "dev@example.com",
+    )
 
 
 async def _require_owned_project(db, project_id: str, user_id: str) -> None:
@@ -114,6 +137,7 @@ async def create_project(
     current_user=Depends(get_current_user),
     db=Depends(get_db),
 ):
+    await _ensure_user_profile(db, current_user["id"], current_user.get("email", ""))
     slug = slugify(body.name)
     try:
         row = await db.fetchrow(

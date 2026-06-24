@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { ProjectWorkspaceView } from "@/components/workspace/organisms/project-workspace-view";
 import { fetchFromApi } from "@/lib/api-server";
 import { getAuthenticatedUser } from "@/lib/server-auth";
+
+export const dynamic = "force-dynamic";
 import {
   SECTION_API_PATH,
   isProjectSection,

@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { fetchFromApi } from "@/lib/api-server";
 import { getAuthenticatedUser } from "@/lib/server-auth";
 
+export const dynamic = "force-dynamic";
+
 interface ProjectLayoutProps {
   children: React.ReactNode;
   params: { id: string };

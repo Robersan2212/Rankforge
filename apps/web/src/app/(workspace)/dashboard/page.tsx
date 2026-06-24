@@ -3,6 +3,8 @@ import { fetchFromApi } from "@/lib/api-server";
 import { getAuthenticatedUser } from "@/lib/server-auth";
 import type { Project, UserStats } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+
 const EMPTY_STATS: UserStats = {
   projects: 0,
   audits: 0,

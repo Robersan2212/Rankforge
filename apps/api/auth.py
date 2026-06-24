@@ -6,6 +6,10 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClient
 
+from apps.api.env import load_env_file
+
+load_env_file()
+
 bearer_scheme = HTTPBearer()
 
 
