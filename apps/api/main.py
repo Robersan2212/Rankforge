@@ -1,3 +1,7 @@
+from apps.api.env import load_env_file
+
+load_env_file()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

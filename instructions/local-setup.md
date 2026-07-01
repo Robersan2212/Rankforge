@@ -53,7 +53,7 @@ SUPABASE_URL=https://<project-ref>.supabase.co
 DATABASE_URL=postgresql://postgres.<project-ref>:<password>@aws-1-us-east-1.pooler.supabase.com:5432/postgres
 ```
 
-**Database URL:** Supabase Dashboard → **Project Settings** → **Database** → **Connection string** → **Session pooler** (recommended on Windows).
+**Database URL:** Supabase Dashboard → **Project Settings** → **Database** → **Connection string** → **Transaction pooler** (port `6543`). On some networks the session pooler (`5432`) may time out; use transaction mode for local dev if needed.
 
 Templates with comments: `apps/web/.env.example` and `apps/api/.env.example`.
 

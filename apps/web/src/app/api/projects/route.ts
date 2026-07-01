@@ -1,4 +1,5 @@
 import { getApiAuthorizationHeader } from "@/lib/server-auth";
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -10,6 +11,7 @@ async function proxyToApi(path: string, init?: RequestInit) {
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
+    cache: "no-store",
     ...init,
     headers: {
       ...init?.headers,
@@ -26,9 +28,15 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const body = await request.json();
-  return proxyToApi("/api/projects", {
+  const response = await proxyToApi("/api/projects", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+
+  if (response.status === 201) {
+    revalidatePath("/dashboard");
+  }
+
+  return response;
 }

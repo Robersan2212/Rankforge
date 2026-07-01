@@ -1,10 +1,20 @@
 "use client";
 
-import Link from "next/link";
+import { LogIn, Lock, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  AuthCard,
+  AuthCardHeader,
+  AuthCardIcon,
+  AuthDivider,
+  AuthError,
+  AuthField,
+  AuthFooterLink,
+  AuthPageShell,
+  AuthPrimaryButton,
+  GoogleAuthButton,
+} from "@/components/auth/auth-page";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -49,64 +59,49 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
-      <h1 className="text-2xl font-semibold">Sign in</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Use email or Google to access your workspaces.
-      </p>
+    <AuthPageShell>
+      <AuthCard>
+        <AuthCardIcon icon={LogIn} />
+        <AuthCardHeader
+          title="Sign in with email"
+          description="Access your Rankforge workspaces for audits, briefs, drafts, and keywords."
+        />
 
-      <form onSubmit={handleEmailSignIn} className="mt-8 space-y-4">
-        <div>
-          <label htmlFor="email" className="text-sm font-medium">
-            Email
-          </label>
-          <Input
+        <form onSubmit={handleEmailSignIn} className="mt-8 space-y-4">
+          <AuthField
             id="email"
             type="email"
+            icon={Mail}
+            placeholder="Email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={setEmail}
             required
-            className="mt-1"
           />
-        </div>
-        <div>
-          <label htmlFor="password" className="text-sm font-medium">
-            Password
-          </label>
-          <Input
+          <AuthField
             id="password"
             type="password"
+            icon={Lock}
+            placeholder="Password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={setPassword}
             required
-            className="mt-1"
+            showPasswordToggle
           />
-        </div>
-        {error && (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        )}
-        <Button type="submit" disabled={loading} className="w-full">
-          {loading ? "Signing in…" : "Sign in"}
-        </Button>
-      </form>
+          {error && <AuthError message={error} />}
+          <AuthPrimaryButton loading={loading} loadingLabel="Signing in…">
+            Get Started
+          </AuthPrimaryButton>
+        </form>
 
-      <Button
-        type="button"
-        variant="outline"
-        className="mt-3 w-full"
-        onClick={handleGoogleSignIn}
-      >
-        Sign in with Google
-      </Button>
+        <AuthDivider label="Or sign in with" />
+        <GoogleAuthButton onClick={handleGoogleSignIn} label="Sign in with Google" />
 
-      <p className="mt-6 text-center text-sm text-muted-foreground">
-        No account?{" "}
-        <Link href="/register" className="text-primary underline-offset-4 hover:underline">
-          Register
-        </Link>
-      </p>
-    </main>
+        <AuthFooterLink
+          prompt="No account?"
+          linkHref="/register"
+          linkLabel="Register"
+        />
+      </AuthCard>
+    </AuthPageShell>
   );
 }
