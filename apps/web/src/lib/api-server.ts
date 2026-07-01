@@ -1,14 +1,10 @@
-import { createClient } from "@/lib/supabase/server";
+import { getApiAuthorizationHeader } from "@/lib/server-auth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export async function fetchFromApi(path: string, init?: RequestInit) {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session?.access_token) {
+  const authorization = await getApiAuthorizationHeader();
+  if (!authorization) {
     throw new Error("Unauthorized");
   }
 
@@ -16,7 +12,7 @@ export async function fetchFromApi(path: string, init?: RequestInit) {
     ...init,
     headers: {
       ...init?.headers,
-      Authorization: `Bearer ${session.access_token}`,
+      Authorization: authorization,
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
     },
   });

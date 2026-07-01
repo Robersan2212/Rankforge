@@ -38,11 +38,24 @@ export default function RegisterPage() {
     router.refresh();
   }
 
+  async function handleGoogleSignUp() {
+    setError(null);
+    const origin = window.location.origin;
+    const supabase = createClient();
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${origin}/auth/callback` },
+    });
+    if (oauthError) {
+      setError(oauthError.message);
+    }
+  }
+
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
       <h1 className="text-2xl font-semibold">Create account</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Register with email to start creating projects.
+        Register with email or Google to start creating projects.
       </p>
 
       <form onSubmit={handleRegister} className="mt-8 space-y-4">
@@ -96,6 +109,15 @@ export default function RegisterPage() {
           {loading ? "Creating account…" : "Register"}
         </Button>
       </form>
+
+      <Button
+        type="button"
+        variant="outline"
+        className="mt-3 w-full"
+        onClick={handleGoogleSignUp}
+      >
+        Sign up with Google
+      </Button>
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Already have an account?{" "}

@@ -1,6 +1,7 @@
 import os
 from unittest.mock import AsyncMock, patch
 
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 
@@ -50,3 +51,39 @@ def test_valid_token_reaches_handler():
         )
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_dev_bypass_token_when_enabled():
+    app.dependency_overrides[get_db] = _mock_get_db
+    with patch.dict(
+        os.environ,
+        {
+            "DEV_AUTH_BYPASS": "true",
+            "DEV_AUTH_USER_ID": "dev-user-uuid",
+            "DEV_AUTH_EMAIL": "dev@example.com",
+            "DEV_AUTH_TOKEN": "rankforge-dev-local",
+        },
+    ):
+        with patch("apps.api.auth._decode_token", side_effect=jwt.InvalidTokenError("nope")):
+            response = client.get(
+                "/api/projects",
+                headers={"Authorization": "Bearer rankforge-dev-local"},
+            )
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_dev_bypass_rejects_wrong_token():
+    with patch.dict(
+        os.environ,
+        {
+            "DEV_AUTH_BYPASS": "true",
+            "DEV_AUTH_USER_ID": "dev-user-uuid",
+            "DEV_AUTH_TOKEN": "rankforge-dev-local",
+        },
+    ):
+        response = client.get(
+            "/api/projects",
+            headers={"Authorization": "Bearer wrong-token"},
+        )
+    assert response.status_code == 401

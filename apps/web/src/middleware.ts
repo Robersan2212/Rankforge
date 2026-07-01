@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isDevAuthBypassEnabled } from "@/lib/dev-auth";
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -35,6 +36,15 @@ export async function middleware(request: NextRequest) {
   const isAuthPage =
     request.nextUrl.pathname === "/login" ||
     request.nextUrl.pathname === "/register";
+
+  if (isDevAuthBypassEnabled()) {
+    if (isAuthPage || request.nextUrl.pathname === "/") {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+    if (isProtected) {
+      return supabaseResponse;
+    }
+  }
 
   if (!user && isProtected) {
     return NextResponse.redirect(new URL("/login", request.url));

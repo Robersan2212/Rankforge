@@ -1,0 +1,64 @@
+import type { LucideIcon } from "lucide-react";
+import {
+  FileText,
+  LayoutDashboard,
+  PenLine,
+  Search,
+  Tags,
+} from "lucide-react";
+
+export const PROJECT_SECTIONS = [
+  "audits",
+  "briefs",
+  "editor",
+  "keywords",
+] as const;
+
+export type ProjectSection = (typeof PROJECT_SECTIONS)[number];
+
+export function isProjectSection(value: string): value is ProjectSection {
+  return PROJECT_SECTIONS.includes(value as ProjectSection);
+}
+
+export const SECTION_API_PATH: Record<ProjectSection, string> = {
+  audits: "audits",
+  briefs: "briefs",
+  editor: "drafts",
+  keywords: "keywords",
+};
+
+export const SECTION_CONFIG: Record<
+  ProjectSection,
+  { label: string; icon: LucideIcon; description: string; singular: string }
+> = {
+  audits: {
+    label: "Audits",
+    icon: Search,
+    singular: "audit",
+    description: "Save page audits scoped to this project.",
+  },
+  briefs: {
+    label: "Briefs",
+    icon: FileText,
+    singular: "brief",
+    description: "Content briefs stored per project.",
+  },
+  editor: {
+    label: "Editor",
+    icon: PenLine,
+    singular: "draft",
+    description: "Content drafts stored per project.",
+  },
+  keywords: {
+    label: "Keywords",
+    icon: Tags,
+    singular: "keyword",
+    description: "Tracked keywords stored per project.",
+  },
+};
+
+export const DASHBOARD_NAV = {
+  label: "Dashboard",
+  icon: LayoutDashboard,
+  href: "/dashboard",
+} as const;

@@ -9,6 +9,25 @@ from jwt import PyJWKClient
 bearer_scheme = HTTPBearer()
 
 
+def _dev_auth_enabled() -> bool:
+    """Local development only — never set DEV_AUTH_BYPASS in production."""
+    return (
+        os.environ.get("DEV_AUTH_BYPASS", "").lower() == "true"
+        and bool(os.environ.get("DEV_AUTH_USER_ID", "").strip())
+    )
+
+
+def _dev_auth_user() -> dict[str, str]:
+    return {
+        "id": os.environ["DEV_AUTH_USER_ID"].strip(),
+        "email": os.environ.get("DEV_AUTH_EMAIL", "dev@example.com").strip(),
+    }
+
+
+def _dev_auth_token() -> str:
+    return os.environ.get("DEV_AUTH_TOKEN", "rankforge-dev-local").strip()
+
+
 @lru_cache
 def _jwks_client() -> PyJWKClient:
     base = os.environ.get("SUPABASE_URL", "").rstrip("/")
@@ -57,6 +76,9 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
 ):
     token = credentials.credentials
+    if _dev_auth_enabled() and token == _dev_auth_token():
+        return _dev_auth_user()
+
     try:
         payload = _decode_token(token)
         user_id: str | None = payload.get("sub")

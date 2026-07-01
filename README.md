@@ -51,6 +51,26 @@ DATABASE_URL=postgresql://...
 
 `SUPABASE_JWT_SECRET` is **optional** — only needed if your project still uses the legacy HS256 secret. New Supabase projects with **ECC signing keys** verify tokens automatically via JWKS using `SUPABASE_URL`.
 
+### Local dev auth bypass (optional)
+
+Skip the login page during local development:
+
+1. Add `SUPABASE_SERVICE_ROLE_KEY` to `apps/api/.env` (Supabase Dashboard → Project Settings → API).
+2. From the repo root, create the dev user and print env lines:
+
+```bash
+python apps/api/scripts/seed_dev_user.py
+```
+
+3. Copy the printed `DEV_AUTH_*` variables into **both** `apps/api/.env` and `apps/web/.env.local`.
+4. Restart the API and web dev servers. Visiting `/` or `/login` redirects straight to `/dashboard`.
+
+Default dev credentials (if you sign in manually instead): `dev@example.com` / `rankforge-dev-password`.
+
+**Never set `DEV_AUTH_BYPASS=true` in production.**
+
+See `apps/api/.env.example` and `apps/web/.env.example` for all variables.
+
 ## Supabase
 
 ```bash
