@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, LogOut } from "lucide-react";
 import { BrandMark } from "@/components/workspace/atoms/brand-mark";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import {
   DASHBOARD_NAV,
@@ -60,9 +62,80 @@ function NavLink({
   );
 }
 
+function SidebarUserMenu() {
+  const router = useRouter();
+  const { userEmail } = useWorkspace();
+  const [open, setOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [open]);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setOpen(false);
+    router.push("/login");
+    router.refresh();
+    setSigningOut(false);
+  }
+
+  return (
+    <div className="relative" ref={menuRef}>
+      {open && (
+        <div className="absolute bottom-full left-0 right-0 mb-2 overflow-hidden rounded-lg border border-sidebar-border bg-sidebar shadow-md">
+          <button
+            type="button"
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent disabled:opacity-50"
+          >
+            <LogOut className="size-4 shrink-0" />
+            {signingOut ? "Signing out…" : "Sign out"}
+          </button>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className={cn(
+          "flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-sidebar-accent",
+          open && "bg-sidebar-accent"
+        )}
+      >
+        <Avatar className="size-9 shrink-0">
+          <AvatarFallback className="bg-sidebar-accent text-xs text-sidebar-foreground">
+            {getUserInitials(userEmail)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">{userEmail}</p>
+          <p className="truncate text-xs text-sidebar-foreground/70">
+            Workspace
+          </p>
+        </div>
+      </button>
+    </div>
+  );
+}
+
 export function AppSidebar() {
   const pathname = usePathname();
-  const { userEmail } = useWorkspace();
 
   const isDashboard = pathname === "/dashboard";
   const projectPath = parseProjectPath(pathname);
@@ -114,19 +187,7 @@ export function AppSidebar() {
       </nav>
 
       <div className="border-t border-sidebar-border p-4">
-        <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-          <Avatar className="size-9 shrink-0">
-            <AvatarFallback className="bg-sidebar-accent text-xs text-sidebar-foreground">
-              {getUserInitials(userEmail)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{userEmail}</p>
-            <p className="truncate text-xs text-sidebar-foreground/70">
-              Workspace
-            </p>
-          </div>
-        </div>
+        <SidebarUserMenu />
       </div>
     </aside>
   );

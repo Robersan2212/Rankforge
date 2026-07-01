@@ -1,10 +1,20 @@
 "use client";
 
-import Link from "next/link";
+import { Lock, Mail, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  AuthCard,
+  AuthCardHeader,
+  AuthCardIcon,
+  AuthDivider,
+  AuthError,
+  AuthField,
+  AuthFooterLink,
+  AuthPageShell,
+  AuthPrimaryButton,
+  GoogleAuthButton,
+} from "@/components/auth/auth-page";
 import { createClient } from "@/lib/supabase/client";
 
 export default function RegisterPage() {
@@ -52,79 +62,61 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
-      <h1 className="text-2xl font-semibold">Create account</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Register with email or Google to start creating projects.
-      </p>
+    <AuthPageShell>
+      <AuthCard>
+        <AuthCardIcon icon={UserPlus} />
+        <AuthCardHeader
+          title="Create account with email"
+          description="Start building isolated SEO project workspaces for your team."
+        />
 
-      <form onSubmit={handleRegister} className="mt-8 space-y-4">
-        <div>
-          <label htmlFor="email" className="text-sm font-medium">
-            Email
-          </label>
-          <Input
+        <form onSubmit={handleRegister} className="mt-8 space-y-4">
+          <AuthField
             id="email"
             type="email"
+            icon={Mail}
+            placeholder="Email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={setEmail}
             required
-            className="mt-1"
           />
-        </div>
-        <div>
-          <label htmlFor="password" className="text-sm font-medium">
-            Password
-          </label>
-          <Input
+          <AuthField
             id="password"
             type="password"
+            icon={Lock}
+            placeholder="Password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={setPassword}
             required
             minLength={6}
-            className="mt-1"
+            showPasswordToggle
           />
-        </div>
-        <div>
-          <label htmlFor="confirm" className="text-sm font-medium">
-            Confirm password
-          </label>
-          <Input
+          <AuthField
             id="confirm"
             type="password"
+            icon={Lock}
+            placeholder="Confirm password"
             value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            onChange={setConfirmPassword}
             required
             minLength={6}
-            className="mt-1"
+            showPasswordToggle
           />
-        </div>
-        {error && (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        )}
-        <Button type="submit" disabled={loading} className="w-full">
-          {loading ? "Creating account…" : "Register"}
-        </Button>
-      </form>
+          {error && <AuthError message={error} />}
+          <AuthPrimaryButton loading={loading} loadingLabel="Creating account…">
+            Get Started
+          </AuthPrimaryButton>
+        </form>
 
-      <Button
-        type="button"
-        variant="outline"
-        className="mt-3 w-full"
-        onClick={handleGoogleSignUp}
-      >
-        Sign up with Google
-      </Button>
+        <AuthDivider label="Or sign up with" />
+        <GoogleAuthButton onClick={handleGoogleSignUp} label="Sign up with Google" />
 
-      <p className="mt-6 text-center text-sm text-muted-foreground">
-        Already have an account?{" "}
-        <Link href="/login" className="text-primary underline-offset-4 hover:underline">
-          Sign in
-        </Link>
-      </p>
-    </main>
+        <AuthFooterLink
+          prompt="Already have an account?"
+          linkHref="/login"
+          linkLabel="Sign in"
+        />
+      </AuthCard>
+    </AuthPageShell>
   );
 }
