@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,6 +21,7 @@ interface NewProjectModalProps {
 
 export function NewProjectModal({ open, onClose }: NewProjectModalProps) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -53,7 +54,14 @@ export function NewProjectModal({ open, onClose }: NewProjectModalProps) {
 
       setName("");
       onClose();
-      router.refresh();
+      const projectId = data.id as string | undefined;
+      startTransition(() => {
+        if (projectId) {
+          router.push(`/project/${projectId}/audits`);
+        } else {
+          router.refresh();
+        }
+      });
     } catch {
       setError("Could not create project. Try again.");
     } finally {
@@ -90,8 +98,8 @@ export function NewProjectModal({ open, onClose }: NewProjectModalProps) {
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading || !name.trim()}>
-              {loading ? "Creating…" : "Create"}
+            <Button type="submit" disabled={loading || isPending || !name.trim()}>
+              {loading ? "Creating…" : isPending ? "Opening…" : "Create"}
             </Button>
           </DialogFooter>
         </form>

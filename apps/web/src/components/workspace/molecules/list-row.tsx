@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -11,6 +12,7 @@ interface ListRowProps {
   href?: string;
   active?: boolean;
   onClick?: () => void;
+  trailing?: ReactNode;
 }
 
 export function ListRow({
@@ -21,6 +23,7 @@ export function ListRow({
   href,
   active = false,
   onClick,
+  trailing,
 }: ListRowProps) {
   const content = (
     <>
@@ -72,9 +75,17 @@ export function ListRow({
 
   if (href) {
     return (
-      <Link href={href} className={className}>
-        {content}
-      </Link>
+      <div
+        className={cn(
+          "flex items-center gap-1 rounded-xl",
+          !active && "hover:bg-muted"
+        )}
+      >
+        <Link href={href} prefetch className={cn(className, "min-w-0 flex-1")}>
+          {content}
+        </Link>
+        {trailing}
+      </div>
     );
   }
 

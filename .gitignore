@@ -36,3 +36,6 @@ supabase/.temp/
 
 # Agent skills installer cache (canonical copy is .cursor/skills/)
 .agents/
+
+# Local build specs / agent artifacts
+.build/

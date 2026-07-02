@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from apps.api.routers import projects
 
-app = FastAPI(title="Rankforge API")
+app = FastAPI(title="Rankforge API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,

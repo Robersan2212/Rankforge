@@ -1,4 +1,5 @@
 import { proxyApiRequest } from "@/lib/api-proxy";
+import { revalidateProjectWorkspace } from "@/lib/revalidate-workspace";
 
 type RouteContext = { params: { id: string } };
 
@@ -8,9 +9,15 @@ export async function GET(_request: Request, { params }: RouteContext) {
 
 export async function POST(request: Request, { params }: RouteContext) {
   const body = await request.json();
-  return proxyApiRequest(`/api/projects/${params.id}/audits`, {
+  const response = await proxyApiRequest(`/api/projects/${params.id}/audits`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+
+  if (response.status === 201) {
+    revalidateProjectWorkspace(params.id);
+  }
+
+  return response;
 }

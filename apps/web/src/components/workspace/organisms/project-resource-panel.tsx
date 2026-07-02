@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/workspace/molecules/empty-state";
+import { AuditDeleteButton } from "@/components/workspace/molecules/audit-delete-button";
 import { ListRow } from "@/components/workspace/molecules/list-row";
 import {
   SECTION_API_PATH,
@@ -45,8 +46,13 @@ function getItemTitle(section: ProjectSection, item: SectionItem): string {
 
 function getItemSubtitle(section: ProjectSection, item: SectionItem): string {
   switch (section) {
-    case "audits":
-      return `Added ${formatDate((item as Audit).created_at)}`;
+    case "audits": {
+      const audit = item as Audit;
+      const score =
+        typeof audit.seo_score === "number" ? `Score ${audit.seo_score}` : null;
+      const date = formatDate(audit.created_at);
+      return score ? `${score} · ${date}` : `Added ${date}`;
+    }
     case "briefs": {
       const brief = item as Brief;
       const title = brief.content?.title;
@@ -92,6 +98,7 @@ export function ProjectResourcePanel({
   items,
 }: ProjectResourcePanelProps) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const config = SECTION_CONFIG[section];
   const apiPath = SECTION_API_PATH[section];
 
@@ -118,7 +125,40 @@ export function ProjectResourcePanel({
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.detail ?? `Failed to add ${config.singular}`);
+        const detail = data.detail;
+        const message =
+          typeof detail === "string"
+            ? detail
+            : Array.isArray(detail)
+              ? detail
+                  .map((item: { msg?: string }) => item.msg)
+                  .filter(Boolean)
+                  .join(". ")
+              : res.status === 500 && typeof detail === "string"
+                ? detail
+                : `Failed to add ${config.singular} (${res.status})`;
+        setError(message);
+        return;
+      }
+
+      if (section === "audits") {
+        const audit = data as { id?: string; seo_score?: number; results?: unknown };
+        const hasReport =
+          audit.results &&
+          typeof audit.results === "object" &&
+          "score_breakdown" in (audit.results as object);
+
+        if (!hasReport || !audit.seo_score) {
+          setError(
+            "Audit saved without report data. Ensure the API on port 8002 and page-auditor on port 3001 are running, then try again."
+          );
+          return;
+        }
+
+        setUrl("");
+        startTransition(() => {
+          router.push(`/project/${projectId}/audits/${audit.id}`);
+        });
         return;
       }
 
@@ -126,7 +166,9 @@ export function ProjectResourcePanel({
       setKeyword("");
       setTitle("");
       setContent("");
-      router.refresh();
+      startTransition(() => {
+        router.refresh();
+      });
     } catch {
       setError(`Could not add ${config.singular}. Try again.`);
     } finally {
@@ -234,8 +276,16 @@ export function ProjectResourcePanel({
           </p>
         )}
 
-        <Button type="submit" disabled={loading || !canSubmit}>
-          {loading ? "Saving…" : `Save ${config.singular}`}
+        <Button type="submit" disabled={loading || isPending || !canSubmit}>
+          {loading
+            ? section === "audits"
+              ? "Auditing… may take up to 15s"
+              : "Saving…"
+            : isPending
+              ? "Loading…"
+              : section === "audits"
+                ? "Run audit"
+                : `Save ${config.singular}`}
         </Button>
       </form>
 
@@ -247,14 +297,36 @@ export function ProjectResourcePanel({
             </h2>
           </div>
           <div className="space-y-1 p-3">
-            {items.map((item) => (
-              <ListRow
-                key={item.id}
-                title={getItemTitle(section, item)}
-                subtitle={getItemSubtitle(section, item)}
-                initials={config.label.slice(0, 2).toUpperCase()}
-              />
-            ))}
+            {items.map((item) => {
+              const audit = section === "audits" ? (item as Audit) : null;
+
+              return (
+                <ListRow
+                  key={item.id}
+                  title={getItemTitle(section, item)}
+                  subtitle={getItemSubtitle(section, item)}
+                  badge={
+                    audit && audit.seo_score > 0
+                      ? String(audit.seo_score)
+                      : undefined
+                  }
+                  initials={config.label.slice(0, 2).toUpperCase()}
+                  href={
+                    section === "audits"
+                      ? `/project/${projectId}/audits/${item.id}`
+                      : undefined
+                  }
+                  trailing={
+                    audit ? (
+                      <AuditDeleteButton
+                        projectId={projectId}
+                        auditId={audit.id}
+                      />
+                    ) : undefined
+                  }
+                />
+              );
+            })}
           </div>
         </div>
       ) : (
