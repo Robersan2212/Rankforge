@@ -24,6 +24,7 @@ cd mcp/content-db && npm install && npm start
 ```
 
 Health: `GET http://127.0.0.1:3001/health`  
+REST audit: `POST http://127.0.0.1:3001/audit` with body `{ "url": "https://..." }` (used by FastAPI)  
 MCP endpoint: `POST http://127.0.0.1:3001/mcp`
 
 ## Run in Cursor (stdio)

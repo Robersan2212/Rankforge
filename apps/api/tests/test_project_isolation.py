@@ -42,7 +42,7 @@ def _mock_db_for_project_isolation():
                             "id": "audit-1",
                             "project_id": PROJECT_A,
                             "url": "https://a.example",
-                            "results": {},
+                            "report": {},
                             "seo_score": 0,
                             "created_at": None,
                         }

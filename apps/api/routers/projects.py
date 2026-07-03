@@ -1,6 +1,7 @@
 import json
 import os
 import re
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -10,10 +11,13 @@ from pydantic import BaseModel, Field
 
 from apps.api.auth import get_current_user
 from apps.api.env import load_env_file
+from apps.api.rate_limit import check_rate_limit
+from apps.api.services.page_auditor import run_audit
 
 load_env_file()
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
+
 
 
 class ProjectCreate(BaseModel):
@@ -69,6 +73,24 @@ def _row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
     for key, value in data.items():
         if isinstance(value, UUID):
             data[key] = str(value)
+        elif key in ("report", "results") and isinstance(value, str):
+            data["report"] = json.loads(value)
+    if "results" in data and "report" not in data:
+        data["report"] = data.pop("results")
+    elif "results" in data:
+        data.pop("results", None)
+    return data
+
+
+def _audit_row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
+    data = _row_to_dict(row)
+    report = data.get("report")
+    if isinstance(report, dict):
+        data["report"] = {
+            **report,
+            "audit_id": data.get("id"),
+            "project_id": data.get("project_id"),
+        }
     return data
 
 
@@ -217,7 +239,14 @@ async def list_project_audits(
         "SELECT * FROM public.audits WHERE project_id = $1 ORDER BY created_at DESC",
         project_id,
     )
-    return [_row_to_dict(r) for r in rows]
+    return [_audit_row_to_dict(r) for r in rows]
+
+
+def _parse_fetched_at(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    normalized = value.replace("Z", "+00:00")
+    return datetime.fromisoformat(normalized)
 
 
 @router.post("/{project_id}/audits", status_code=201)
@@ -228,13 +257,90 @@ async def create_project_audit(
     db=Depends(get_db),
 ):
     await _require_owned_project(db, project_id, current_user["id"])
+    check_rate_limit(current_user["id"])
+
+    try:
+        report = await run_audit(body.url, project_id=project_id)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Audit failed: {exc}",
+        ) from exc
+
+    fetched_at = _parse_fetched_at(report.get("fetched_at"))
+    seo_score = int(report.get("seo_score") or 0)
+    audited_url = report.get("url", body.url)
+    report_payload = {
+        **report,
+        "project_id": project_id,
+    }
+    report_json = json.dumps(report_payload)
+
+    try:
+        row = await db.fetchrow(
+            """INSERT INTO public.audits (project_id, url, report, seo_score, fetched_at)
+               VALUES ($1, $2, $3::jsonb, $4, $5) RETURNING *""",
+            project_id,
+            audited_url,
+            report_json,
+            seo_score,
+            fetched_at,
+        )
+    except asyncpg.UndefinedColumnError:
+        row = await db.fetchrow(
+            """INSERT INTO public.audits (project_id, url, results, seo_score, fetched_at)
+               VALUES ($1, $2, $3::jsonb, $4, $5) RETURNING *""",
+            project_id,
+            audited_url,
+            report_json,
+            seo_score,
+            fetched_at,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to save audit: {exc}",
+        ) from exc
+
+    return _audit_row_to_dict(row)
+
+
+@router.get("/{project_id}/audits/{audit_id}")
+async def get_project_audit(
+    project_id: str,
+    audit_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
     row = await db.fetchrow(
-        """INSERT INTO public.audits (project_id, url, results, seo_score)
-           VALUES ($1, $2, '{}'::jsonb, 0) RETURNING *""",
+        """SELECT * FROM public.audits
+           WHERE id = $1 AND project_id = $2""",
+        audit_id,
         project_id,
-        body.url,
     )
-    return _row_to_dict(row)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Audit not found")
+    return _audit_row_to_dict(row)
+
+
+@router.delete("/{project_id}/audits/{audit_id}", status_code=204)
+async def delete_project_audit(
+    project_id: str,
+    audit_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    result = await db.execute(
+        "DELETE FROM public.audits WHERE id = $1 AND project_id = $2",
+        audit_id,
+        project_id,
+    )
+    if result == "DELETE 0":
+        raise HTTPException(status_code=404, detail="Audit not found")
 
 
 @router.get("/{project_id}/briefs")

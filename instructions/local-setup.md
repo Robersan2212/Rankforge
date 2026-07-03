@@ -50,7 +50,8 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 ```env
 SUPABASE_URL=https://<project-ref>.supabase.co
-DATABASE_URL=postgresql://postgres.<project-ref>:<password>@aws-1-us-east-1.pooler.supabase.com:5432/postgres
+DATABASE_URL=postgresql://postgres.<project-ref>:<password>@aws-1-us-east-1.pooler.supabase.com:6543/postgres
+PAGE_AUDITOR_URL=http://127.0.0.1:3001
 ```
 
 **Database URL:** Supabase Dashboard → **Project Settings** → **Database** → **Connection string** → **Transaction pooler** (port `6543`). On some networks the session pooler (`5432`) may time out; use transaction mode for local dev if needed.
@@ -80,9 +81,26 @@ cd ..\..
 
 On Windows PowerShell, use `npm.cmd` if execution policy blocks `npm.ps1`.
 
+### Page auditor MCP (port 3001, required for audits)
+
+```powershell
+cd mcp\page-auditor
+npm install
+npm.cmd start
+```
+
+Health check: [http://127.0.0.1:3001/health](http://127.0.0.1:3001/health) → `{"status":"ok"}`
+
+Add `PAGE_AUDITOR_URL=http://127.0.0.1:3001` to `apps/api/.env` (see `apps/api/.env.example`).
+
+Apply migrations if not already applied (`supabase db push` or SQL editor):
+
+- `supabase/migrations/0002_audits_fetched_at.sql`
+- `supabase/migrations/0003_audits_report_column.sql` (renames `results` → `report`, enforces `seo_score NOT NULL`)
+
 ## 5. Run the app (normal auth)
 
-You need **two terminals**. Both stay running while you develop.
+You need **three terminals** for full audit functionality (API, web, page-auditor). API and web are required; page-auditor is required to run SEO audits.
 
 ### Terminal 1 — API (port 8000)
 
@@ -106,6 +124,13 @@ npm.cmd run dev
 Wait for `Ready` and `Local: http://localhost:3000`.
 
 Open [http://localhost:3000](http://localhost:3000).
+
+### Terminal 3 — Page auditor (port 3001)
+
+```powershell
+cd mcp\page-auditor
+npm.cmd start
+```
 
 ### Normal login flow
 
@@ -189,6 +214,15 @@ Remove or comment out `DEV_AUTH_BYPASS=true` in both `apps/api/.env` and `apps/w
 | http://localhost:3000 | Next.js web app |
 | http://localhost:8000/health | FastAPI health check |
 | http://localhost:8000/api/projects | Projects API (requires auth or dev bypass) |
+| http://127.0.0.1:3001/health | Page auditor MCP health |
+| http://127.0.0.1:3001/audit | Page auditor REST endpoint (POST `{ "url": "..." }`) |
+
+### FR-02 demo: run an audit
+
+1. Open a project → **Audits** tab.
+2. Enter a public URL (e.g. `https://example.com`) and click **Run audit**.
+3. Wait up to ~15s; the list shows the SEO score. Click a row to view the full report.
+4. Re-run after editing a local HTML fixture to confirm the score changes.
 
 ## Related docs
 

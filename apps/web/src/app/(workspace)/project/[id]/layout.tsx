@@ -1,28 +1,7 @@
-import { notFound, redirect } from "next/navigation";
-import { fetchFromApi } from "@/lib/api-server";
-import { getAuthenticatedUser } from "@/lib/server-auth";
-
-export const dynamic = "force-dynamic";
-
-interface ProjectLayoutProps {
-  children: React.ReactNode;
-  params: { id: string };
-}
-
-export default async function ProjectLayout({
+export default function ProjectLayout({
   children,
-  params,
-}: ProjectLayoutProps) {
-  const user = await getAuthenticatedUser();
-
-  if (!user) {
-    redirect("/login");
-  }
-
-  const res = await fetchFromApi(`/api/projects/${params.id}`);
-  if (res.status === 404 || !res.ok) {
-    notFound();
-  }
-
+}: {
+  children: React.ReactNode;
+}) {
   return children;
 }

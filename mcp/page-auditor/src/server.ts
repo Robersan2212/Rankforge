@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { auditPage } from "./lib/audit.js";
+import { auditUrl } from "./lib/audit.js";
 
 export function createPageAuditorServer(): McpServer {
   const server = new McpServer({
@@ -12,14 +12,14 @@ export function createPageAuditorServer(): McpServer {
     "audit_page",
     {
       description:
-        "Crawls a URL and returns SEO signals: meta tags, headings, word count, links, images, rubric issues, and an SEO score (0–100).",
+        "Crawls a URL and returns a structured SEO audit report with score breakdown (0–100).",
       inputSchema: {
         url: z.string().url().describe("The page URL to audit"),
       },
     },
     async ({ url }) => {
       try {
-        const result = await auditPage(url);
+        const result = await auditUrl(url);
         return {
           content: [
             {

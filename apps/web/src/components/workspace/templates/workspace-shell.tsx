@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
+import { RouteProgressBar } from "@/components/workspace/molecules/route-progress-bar";
 import { AppSidebar } from "@/components/workspace/organisms/app-sidebar";
 import { cn } from "@/lib/utils";
 
@@ -17,10 +18,11 @@ export function WorkspaceShell({ children, className }: WorkspaceShellProps) {
       </div>
       <main
         className={cn(
-          "flex min-h-[calc(100vh-1rem)] min-w-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-sm md:min-h-[calc(100vh-1.5rem)]",
+          "relative flex min-h-[calc(100vh-1rem)] min-w-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-sm md:min-h-[calc(100vh-1.5rem)]",
           className
         )}
       >
+        <RouteProgressBar />
         <header className="flex h-12 shrink-0 items-center border-b border-border px-4 md:hidden">
           <span className="font-mono text-xs tracking-[0.2em]">RANKFORGE</span>
         </header>
