@@ -1,4 +1,4 @@
-import { FileText, FolderKanban, Search, Tags } from "lucide-react";
+import { BarChart2, FileText, FolderKanban, Search, Tags } from "lucide-react";
 import { MetricCard } from "@/components/workspace/molecules/metric-card";
 import type { ProjectStats, UserStats } from "@/lib/types";
 
@@ -50,7 +50,7 @@ interface ProjectMetricRowProps {
 
 export function ProjectMetricRow({ stats, sectionLabel }: ProjectMetricRowProps) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
       <MetricCard
         label="Audits"
         value={stats.audits}
@@ -59,10 +59,18 @@ export function ProjectMetricRow({ stats, sectionLabel }: ProjectMetricRowProps)
         icon={Search}
       />
       <MetricCard
+        label="Competitors"
+        value={stats.competitors ?? 0}
+        delta={
+          (stats.competitors ?? 0) === 0 ? "No data yet" : "In this project"
+        }
+        variant="blue"
+        icon={BarChart2}
+      />
+      <MetricCard
         label="Briefs"
         value={stats.briefs}
         delta={stats.briefs === 0 ? "No data yet" : "In this project"}
-        variant="blue"
         icon={FileText}
       />
       <MetricCard
