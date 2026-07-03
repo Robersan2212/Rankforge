@@ -63,7 +63,7 @@ def _mock_db_for_audits():
                         "id": "audit-new-id",
                         "project_id": args[0],
                         "url": args[1],
-                        "results": json.loads(args[2]),
+                        "report": json.loads(args[2]),
                         "seo_score": args[3],
                         "fetched_at": args[4],
                         "created_at": datetime.now(timezone.utc),
@@ -75,7 +75,11 @@ def _mock_db_for_audits():
                     "id": args[0],
                     "project_id": args[1],
                     "url": SAMPLE_REPORT["url"],
-                    "results": SAMPLE_REPORT,
+                    "report": {
+                        **SAMPLE_REPORT,
+                        "audit_id": args[0],
+                        "project_id": args[1],
+                    },
                     "seo_score": SAMPLE_REPORT["seo_score"],
                     "fetched_at": SAMPLE_REPORT["fetched_at"],
                     "created_at": datetime.now(timezone.utc),
@@ -110,7 +114,8 @@ def test_create_audit_persists_report():
     assert res.status_code == 201
     body = res.json()
     assert body["seo_score"] == 88
-    assert body["results"]["word_count"] == 650
+    assert body["report"]["word_count"] == 650
+    assert body["report"]["audit_id"] == "audit-new-id"
 
 
 def test_get_audit_by_id():
@@ -174,6 +179,28 @@ def test_audit_rate_limit_returns_429():
             )
 
     assert res.status_code == 429
+
+
+def test_run_audit_forwards_project_id():
+    fake_payload = {"sub": USER_A, "email": "a@example.com"}
+    app.dependency_overrides[get_db] = _mock_db_for_audits()
+
+    with patch(
+        "apps.api.routers.projects.run_audit",
+        new_callable=AsyncMock,
+        return_value=SAMPLE_REPORT,
+    ) as mock_run:
+        with patch("apps.api.auth._decode_token", return_value=fake_payload):
+            res = client.post(
+                f"/api/projects/{PROJECT_A}/audits",
+                headers={"Authorization": "Bearer token"},
+                json={"url": "https://example.com/page"},
+            )
+
+    assert res.status_code == 201
+    mock_run.assert_awaited_once_with(
+        "https://example.com/page", project_id=PROJECT_A
+    )
 
 
 def test_delete_audit_returns_204():

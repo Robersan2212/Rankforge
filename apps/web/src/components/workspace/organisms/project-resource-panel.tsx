@@ -142,15 +142,21 @@ export function ProjectResourcePanel({
       }
 
       if (section === "audits") {
-        const audit = data as { id?: string; seo_score?: number; results?: unknown };
+        const audit = data as {
+          id?: string;
+          seo_score?: number;
+          report?: unknown;
+          results?: unknown;
+        };
+        const payload = audit.report ?? audit.results;
         const hasReport =
-          audit.results &&
-          typeof audit.results === "object" &&
-          "score_breakdown" in (audit.results as object);
+          payload &&
+          typeof payload === "object" &&
+          "score_breakdown" in (payload as object);
 
         if (!hasReport || !audit.seo_score) {
           setError(
-            "Audit saved without report data. Ensure the API on port 8002 and page-auditor on port 3001 are running, then try again."
+            "Audit saved without report data. Ensure the API and page-auditor (port 3001) are running, then try again."
           );
           return;
         }

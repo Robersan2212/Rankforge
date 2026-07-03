@@ -73,8 +73,24 @@ def _row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
     for key, value in data.items():
         if isinstance(value, UUID):
             data[key] = str(value)
-        elif key == "results" and isinstance(value, str):
-            data[key] = json.loads(value)
+        elif key in ("report", "results") and isinstance(value, str):
+            data["report"] = json.loads(value)
+    if "results" in data and "report" not in data:
+        data["report"] = data.pop("results")
+    elif "results" in data:
+        data.pop("results", None)
+    return data
+
+
+def _audit_row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
+    data = _row_to_dict(row)
+    report = data.get("report")
+    if isinstance(report, dict):
+        data["report"] = {
+            **report,
+            "audit_id": data.get("id"),
+            "project_id": data.get("project_id"),
+        }
     return data
 
 
@@ -223,7 +239,7 @@ async def list_project_audits(
         "SELECT * FROM public.audits WHERE project_id = $1 ORDER BY created_at DESC",
         project_id,
     )
-    return [_row_to_dict(r) for r in rows]
+    return [_audit_row_to_dict(r) for r in rows]
 
 
 def _parse_fetched_at(value: str | None) -> datetime | None:
@@ -244,7 +260,7 @@ async def create_project_audit(
     check_rate_limit(current_user["id"])
 
     try:
-        report = await run_audit(body.url)
+        report = await run_audit(body.url, project_id=project_id)
     except HTTPException:
         raise
     except Exception as exc:
@@ -256,11 +272,15 @@ async def create_project_audit(
     fetched_at = _parse_fetched_at(report.get("fetched_at"))
     seo_score = int(report.get("seo_score") or 0)
     audited_url = report.get("url", body.url)
-    report_json = json.dumps(report)
+    report_payload = {
+        **report,
+        "project_id": project_id,
+    }
+    report_json = json.dumps(report_payload)
 
     try:
         row = await db.fetchrow(
-            """INSERT INTO public.audits (project_id, url, results, seo_score, fetched_at)
+            """INSERT INTO public.audits (project_id, url, report, seo_score, fetched_at)
                VALUES ($1, $2, $3::jsonb, $4, $5) RETURNING *""",
             project_id,
             audited_url,
@@ -270,12 +290,13 @@ async def create_project_audit(
         )
     except asyncpg.UndefinedColumnError:
         row = await db.fetchrow(
-            """INSERT INTO public.audits (project_id, url, results, seo_score)
-               VALUES ($1, $2, $3::jsonb, $4) RETURNING *""",
+            """INSERT INTO public.audits (project_id, url, results, seo_score, fetched_at)
+               VALUES ($1, $2, $3::jsonb, $4, $5) RETURNING *""",
             project_id,
             audited_url,
             report_json,
             seo_score,
+            fetched_at,
         )
     except Exception as exc:
         raise HTTPException(
@@ -283,7 +304,7 @@ async def create_project_audit(
             detail=f"Failed to save audit: {exc}",
         ) from exc
 
-    return _row_to_dict(row)
+    return _audit_row_to_dict(row)
 
 
 @router.get("/{project_id}/audits/{audit_id}")
@@ -302,7 +323,7 @@ async def get_project_audit(
     )
     if row is None:
         raise HTTPException(status_code=404, detail="Audit not found")
-    return _row_to_dict(row)
+    return _audit_row_to_dict(row)
 
 
 @router.delete("/{project_id}/audits/{audit_id}", status_code=204)

@@ -72,6 +72,8 @@ export interface HeadingsByLevel {
 }
 
 export interface AuditReport {
+  audit_id?: string;
+  project_id?: string;
   url: string;
   fetched_at: string;
   meta_title: string | null;
@@ -98,8 +100,16 @@ export interface Audit {
   id: string;
   project_id: string;
   url: string;
-  results: AuditReport | Record<string, unknown>;
+  report: AuditReport | Record<string, unknown>;
+  /** Legacy column name from older migrations */
+  results?: AuditReport | Record<string, unknown>;
   seo_score: number;
   fetched_at?: string | null;
   created_at: string;
+}
+
+export function getAuditPayload(
+  audit: Pick<Audit, "report" | "results">
+): AuditReport | Record<string, unknown> | undefined {
+  return audit.report ?? audit.results;
 }

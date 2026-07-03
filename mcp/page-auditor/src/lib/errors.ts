@@ -4,7 +4,9 @@ export type AuditErrorCode =
   | "ROBOTS_DISALLOWED"
   | "TIMEOUT"
   | "FETCH_FAILED"
-  | "RESPONSE_TOO_LARGE";
+  | "RESPONSE_TOO_LARGE"
+  | "ACCESS_BLOCKED"
+  | "RATE_LIMITED";
 
 export class AuditError extends Error {
   readonly code: AuditErrorCode;

@@ -93,7 +93,10 @@ Health check: [http://127.0.0.1:3001/health](http://127.0.0.1:3001/health) → `
 
 Add `PAGE_AUDITOR_URL=http://127.0.0.1:3001` to `apps/api/.env` (see `apps/api/.env.example`).
 
-Apply migration `supabase/migrations/0002_audits_fetched_at.sql` if not already applied (`supabase db push` or SQL editor).
+Apply migrations if not already applied (`supabase db push` or SQL editor):
+
+- `supabase/migrations/0002_audits_fetched_at.sql`
+- `supabase/migrations/0003_audits_report_column.sql` (renames `results` → `report`, enforces `seo_score NOT NULL`)
 
 ## 5. Run the app (normal auth)
 

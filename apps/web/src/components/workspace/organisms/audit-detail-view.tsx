@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AuditDeleteButton } from "@/components/workspace/molecules/audit-delete-button";
 import { AuditReportView, isAuditReport } from "@/components/workspace/organisms/audit-report";
 import type { Audit, Project } from "@/lib/types";
+import { getAuditPayload } from "@/lib/types";
 
 interface AuditDetailViewProps {
   project: Project;
@@ -9,7 +10,8 @@ interface AuditDetailViewProps {
 }
 
 export function AuditDetailView({ project, audit }: AuditDetailViewProps) {
-  const report = isAuditReport(audit.results) ? audit.results : null;
+  const payload = getAuditPayload(audit);
+  const report = isAuditReport(payload) ? payload : null;
 
   return (
     <div className="space-y-6">

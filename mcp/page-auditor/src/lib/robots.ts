@@ -67,6 +67,12 @@ function isPathAllowed(rules: RobotsRule, path: string): boolean {
   return true;
 }
 
+export function isPathAllowedForRobots(rules: RobotsRule, path: string): boolean {
+  return isPathAllowed(rules, path);
+}
+
+export { parseRobotsTxt };
+
 export async function assertRobotsAllowed(pageUrl: URL): Promise<void> {
   const robotsUrl = new URL("/robots.txt", pageUrl.origin).href;
 

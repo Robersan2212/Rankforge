@@ -23,6 +23,8 @@ export interface HeadingsByLevel {
 }
 
 export interface AuditReport {
+  audit_id?: string;
+  project_id?: string;
   url: string;
   fetched_at: string;
   meta_title: string | null;
@@ -68,5 +70,7 @@ export const USER_AGENT =
   "RankforgeAuditBot/1.0 (+https://rankforge.app/bot)";
 
 export const MAX_URL_LENGTH = 2048;
+export const CONNECT_TIMEOUT_MS = 5_000;
 export const CRAWL_TIMEOUT_MS = 15_000;
 export const MAX_HTML_BYTES = 10 * 1024 * 1024;
+export const MAX_REDIRECTS = 10;

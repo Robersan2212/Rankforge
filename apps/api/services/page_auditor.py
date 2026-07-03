@@ -11,13 +11,16 @@ def _page_auditor_url() -> str:
     return os.environ.get("PAGE_AUDITOR_URL", DEFAULT_PAGE_AUDITOR_URL).rstrip("/")
 
 
-async def run_audit(url: str) -> dict:
+async def run_audit(url: str, project_id: str | None = None) -> dict:
     """Call the page-auditor MCP REST endpoint and return the audit report."""
     endpoint = f"{_page_auditor_url()}/audit"
+    payload: dict[str, str] = {"url": url}
+    if project_id:
+        payload["project_id"] = project_id
 
     try:
         async with httpx.AsyncClient(timeout=CLIENT_TIMEOUT_SECONDS) as client:
-            response = await client.post(endpoint, json={"url": url})
+            response = await client.post(endpoint, json=payload)
     except httpx.ConnectError:
         raise HTTPException(
             status_code=503,
