@@ -1,3 +1,7 @@
+import { loadEnvFile } from "./lib/load-env.js";
+
+loadEnvFile();
+
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createSerpServer } from "./server.js";
 

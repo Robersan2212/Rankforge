@@ -13,7 +13,7 @@ Three independent MCP microservices built with [`@modelcontextprotocol/sdk`](htt
 
 - Node.js 18+
 - Playwright Chromium (`page-auditor` runs `playwright install chromium` on `npm install`)
-- `SERP_API_KEY` for live SERP (SerpAPI) — optional for `serp`
+- `SERP_API_KEY` for live SERP (SerpAPI) — set in `mcp/serp/.env` or shell env
 - `DATABASE_URL` (Supabase Postgres) for `content-db`
 
 ## Run locally (HTTP)

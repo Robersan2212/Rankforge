@@ -482,14 +482,24 @@ async def create_competitor_analysis(
     await _require_owned_project(db, project_id, current_user["id"])
     check_competitor_rate_limit(current_user["id"])
 
-    row = await db.fetchrow(
-        """INSERT INTO public.competitor_analyses
-           (project_id, keyword, user_page_url, status)
-           VALUES ($1, $2, $3, 'pending') RETURNING *""",
-        project_id,
-        body.keyword.strip(),
-        body.user_page_url.strip(),
-    )
+    try:
+        row = await db.fetchrow(
+            """INSERT INTO public.competitor_analyses
+               (project_id, keyword, user_page_url, status)
+               VALUES ($1, $2, $3, 'pending') RETURNING *""",
+            project_id,
+            body.keyword.strip(),
+            body.user_page_url.strip(),
+        )
+    except asyncpg.UndefinedTableError:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Competitor analysis tables are missing. Apply migration "
+                "0004_competitor_analyses.sql (supabase db push or "
+                "python apps/api/scripts/apply_competitor_migration.py)."
+            ),
+        ) from None
 
     analysis_id = str(row["id"])
     background_tasks.add_task(run_competitor_analysis, analysis_id)

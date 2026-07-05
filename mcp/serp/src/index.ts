@@ -1,3 +1,7 @@
+import { loadEnvFile } from "./lib/load-env.js";
+
+loadEnvFile();
+
 import express from "express";
 import { createMcpHttpApp, listenMcpApp } from "./lib/mcp-http.js";
 import { registerSerpRoute } from "./lib/serp-route.js";
