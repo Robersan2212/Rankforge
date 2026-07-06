@@ -433,6 +433,23 @@ async def get_project_brief(
     return _brief_row_to_dict(row)
 
 
+@router.delete("/{project_id}/briefs/{brief_id}", status_code=204)
+async def delete_project_brief(
+    project_id: str,
+    brief_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    result = await db.execute(
+        "DELETE FROM public.briefs WHERE id = $1 AND project_id = $2",
+        brief_id,
+        project_id,
+    )
+    if result == "DELETE 0":
+        raise HTTPException(status_code=404, detail="Brief not found")
+
+
 @router.get("/{project_id}/competitor-analyses")
 async def list_competitor_analyses(
     project_id: str,

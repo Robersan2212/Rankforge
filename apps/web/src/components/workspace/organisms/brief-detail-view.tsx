@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BriefDeleteButton } from "@/components/workspace/molecules/brief-delete-button";
 import { isGeneratedBriefContent } from "@/lib/brief-types";
 import type { Brief, Project } from "@/lib/types";
 
@@ -12,18 +13,26 @@ export function BriefDetailView({ project, brief }: BriefDetailViewProps) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1 min-w-0">
-        <Link
-          href={`/project/${project.id}/briefs`}
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← Back to briefs
-        </Link>
-        <h1 className="text-xl font-semibold">{brief.keyword}</h1>
-        <p className="text-sm text-muted-foreground">
-          {project.name} · Generated{" "}
-          {new Date(content?.generated_at ?? brief.created_at).toLocaleString()}
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1 min-w-0">
+          <Link
+            href={`/project/${project.id}/briefs`}
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            ← Back to briefs
+          </Link>
+          <h1 className="text-xl font-semibold">{brief.keyword}</h1>
+          <p className="text-sm text-muted-foreground">
+            {project.name} · Generated{" "}
+            {new Date(content?.generated_at ?? brief.created_at).toLocaleString()}
+          </p>
+        </div>
+        <BriefDeleteButton
+          projectId={project.id}
+          briefId={brief.id}
+          redirectTo={`/project/${project.id}/briefs`}
+          variant="button"
+        />
       </div>
 
       {content ? (

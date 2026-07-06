@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/workspace/molecules/empty-state";
+import { BriefDeleteButton } from "@/components/workspace/molecules/brief-delete-button";
 import { ListRow } from "@/components/workspace/molecules/list-row";
 import { isGeneratedBriefContent } from "@/lib/brief-types";
 import { SECTION_CONFIG } from "@/lib/workspace";
@@ -175,6 +176,12 @@ export function BriefGenerationPanel({
                   subtitle={subtitle}
                   initials={config.label.slice(0, 2).toUpperCase()}
                   href={`/project/${projectId}/briefs/${brief.id}`}
+                  trailing={
+                    <BriefDeleteButton
+                      projectId={projectId}
+                      briefId={brief.id}
+                    />
+                  }
                 />
               );
             })}
