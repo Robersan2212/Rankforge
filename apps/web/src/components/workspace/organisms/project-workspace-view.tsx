@@ -1,10 +1,12 @@
 import { ProjectMetricRow } from "@/components/workspace/organisms/metric-row";
+import { CompetitorAnalysisPanel } from "@/components/workspace/organisms/competitor-analysis-panel";
 import { ProjectResourcePanel } from "@/components/workspace/organisms/project-resource-panel";
 import { WorkspaceHeader } from "@/components/workspace/organisms/workspace-header";
 import { SECTION_CONFIG, type ProjectSection } from "@/lib/workspace";
 import type {
   Audit,
   Brief,
+  CompetitorAnalysis,
   Draft,
   Project,
   ProjectStats,
@@ -14,7 +16,7 @@ import type {
 interface ProjectWorkspaceViewProps {
   project: Project;
   section: ProjectSection;
-  items: Audit[] | Brief[] | Draft[] | TrackedKeyword[];
+  items: Audit[] | Brief[] | Draft[] | TrackedKeyword[] | CompetitorAnalysis[];
   stats: ProjectStats;
 }
 
@@ -35,11 +37,18 @@ export function ProjectWorkspaceView({
 
       <ProjectMetricRow stats={stats} sectionLabel={sectionConfig.label} />
 
-      <ProjectResourcePanel
-        projectId={project.id}
-        section={section}
-        items={items}
-      />
+      {section === "competitors" ? (
+        <CompetitorAnalysisPanel
+          projectId={project.id}
+          items={items as CompetitorAnalysis[]}
+        />
+      ) : (
+        <ProjectResourcePanel
+          projectId={project.id}
+          section={section}
+          items={items as Audit[] | Brief[] | Draft[] | TrackedKeyword[]}
+        />
+      )}
     </div>
   );
 }

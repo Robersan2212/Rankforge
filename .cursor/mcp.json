@@ -10,6 +10,11 @@
       "args": ["tsx", "src/stdio.ts"],
       "cwd": "${workspaceFolder}/mcp/serp"
     },
+    "rankforge-competitor-analysis": {
+      "command": "npx",
+      "args": ["tsx", "src/stdio.ts"],
+      "cwd": "${workspaceFolder}/mcp/competitor-analysis"
+    },
     "rankforge-content-db": {
       "command": "npx",
       "args": ["tsx", "src/stdio.ts"],

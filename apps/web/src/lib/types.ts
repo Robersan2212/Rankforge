@@ -20,6 +20,7 @@ export interface ProjectStats {
   briefs: number;
   drafts: number;
   keywords: number;
+  competitors: number;
 }
 
 export interface Brief {
@@ -112,4 +113,55 @@ export function getAuditPayload(
   audit: Pick<Audit, "report" | "results">
 ): AuditReport | Record<string, unknown> | undefined {
   return audit.report ?? audit.results;
+}
+
+export interface ContentGap {
+  topics_missing_from_user_page: string[];
+  topics_user_page_shares: string[];
+}
+
+export interface CompetitorPage {
+  url: string;
+  rank_position?: number;
+  status: "ok" | "skipped" | "failed";
+  reason?: string;
+  headings?: HeadingsByLevel;
+  word_count?: number;
+  topics_covered?: string[];
+  faq_questions?: string[];
+  scraped_at?: string;
+}
+
+export interface CompetitorAnalysisReport {
+  keyword: string;
+  user_page_url: string;
+  requested_at: string;
+  results_requested: number;
+  results_returned: number;
+  competitors: CompetitorPage[];
+  content_gap: ContentGap;
+  user_page?: CompetitorPage;
+}
+
+export interface CompetitorAnalysis {
+  id: string;
+  project_id: string;
+  keyword: string;
+  user_page_url: string;
+  status: "pending" | "running" | "completed" | "partial" | "failed";
+  report: CompetitorAnalysisReport | null;
+  error: string | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export function isCompetitorAnalysisReport(
+  value: unknown
+): value is CompetitorAnalysisReport {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "competitors" in value &&
+    "content_gap" in value
+  );
 }
