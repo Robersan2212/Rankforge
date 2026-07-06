@@ -6,13 +6,15 @@ from fastapi import HTTPException
 
 _WINDOW_SECONDS = 60
 _MAX_REQUESTS = 10
-
-_buckets: dict[str, list[float]] = defaultdict(list)
-_competitor_buckets: dict[str, list[float]] = defaultdict(list)
-_lock = Lock()
-
+_BRIEF_WINDOW_SECONDS = 3600
+_BRIEF_MAX_REQUESTS = 5
 _COMPETITOR_WINDOW_SECONDS = 3600
 _COMPETITOR_MAX_REQUESTS = 5
+
+_buckets: dict[str, list[float]] = defaultdict(list)
+_brief_buckets: dict[str, list[float]] = defaultdict(list)
+_competitor_buckets: dict[str, list[float]] = defaultdict(list)
+_lock = Lock()
 
 
 def check_rate_limit(user_id: str, *, max_requests: int = _MAX_REQUESTS) -> None:
@@ -31,11 +33,25 @@ def check_rate_limit(user_id: str, *, max_requests: int = _MAX_REQUESTS) -> None
         _buckets[user_id].append(now)
 
 
-def reset_rate_limits_for_tests() -> None:
-    """Clear in-memory buckets (test helper only)."""
+def check_brief_rate_limit(
+    user_id: str,
+    *,
+    max_requests: int = _BRIEF_MAX_REQUESTS,
+    window_seconds: int = _BRIEF_WINDOW_SECONDS,
+) -> None:
+    """Sliding-window rate limit for brief generation (5 per hour)."""
+    now = time.monotonic()
+    cutoff = now - window_seconds
+
     with _lock:
-        _buckets.clear()
-        _competitor_buckets.clear()
+        timestamps = _brief_buckets[user_id]
+        _brief_buckets[user_id] = [t for t in timestamps if t > cutoff]
+        if len(_brief_buckets[user_id]) >= max_requests:
+            raise HTTPException(
+                status_code=429,
+                detail="Brief generation rate limit exceeded (5 per hour). Try again shortly.",
+            )
+        _brief_buckets[user_id].append(now)
 
 
 def check_competitor_rate_limit(
@@ -57,3 +73,11 @@ def check_competitor_rate_limit(
                 ),
             )
         _competitor_buckets[user_id].append(now)
+
+
+def reset_rate_limits_for_tests() -> None:
+    """Clear in-memory buckets (test helper only)."""
+    with _lock:
+        _buckets.clear()
+        _brief_buckets.clear()
+        _competitor_buckets.clear()

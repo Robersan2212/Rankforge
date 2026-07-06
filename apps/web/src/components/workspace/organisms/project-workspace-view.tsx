@@ -1,3 +1,4 @@
+import { BriefGenerationPanel } from "@/components/workspace/organisms/brief-generation-panel";
 import { ProjectMetricRow } from "@/components/workspace/organisms/metric-row";
 import { CompetitorAnalysisPanel } from "@/components/workspace/organisms/competitor-analysis-panel";
 import { ProjectResourcePanel } from "@/components/workspace/organisms/project-resource-panel";
@@ -18,6 +19,8 @@ interface ProjectWorkspaceViewProps {
   section: ProjectSection;
   items: Audit[] | Brief[] | Draft[] | TrackedKeyword[] | CompetitorAnalysis[];
   stats: ProjectStats;
+  audits?: Audit[];
+  competitorAnalyses?: CompetitorAnalysis[];
 }
 
 export function ProjectWorkspaceView({
@@ -25,6 +28,8 @@ export function ProjectWorkspaceView({
   section,
   items,
   stats,
+  audits = [],
+  competitorAnalyses = [],
 }: ProjectWorkspaceViewProps) {
   const sectionConfig = SECTION_CONFIG[section];
 
@@ -37,7 +42,14 @@ export function ProjectWorkspaceView({
 
       <ProjectMetricRow stats={stats} sectionLabel={sectionConfig.label} />
 
-      {section === "competitors" ? (
+      {section === "briefs" ? (
+        <BriefGenerationPanel
+          projectId={project.id}
+          briefs={items as Brief[]}
+          audits={audits}
+          competitorAnalyses={competitorAnalyses}
+        />
+      ) : section === "competitors" ? (
         <CompetitorAnalysisPanel
           projectId={project.id}
           items={items as CompetitorAnalysis[]}

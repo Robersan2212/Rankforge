@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   CompetitorAnalysisReportView,
 } from "@/components/workspace/organisms/competitor-analysis-report";
+import { CompetitorDeleteButton } from "@/components/workspace/molecules/competitor-delete-button";
 import { Badge } from "@/components/ui/badge";
 import type { CompetitorAnalysis, Project } from "@/lib/types";
 import { isCompetitorAnalysisReport } from "@/lib/types";
@@ -55,7 +56,15 @@ export function CompetitorDetailView({
               : `Started ${new Date(analysis.created_at).toLocaleString()}`}
           </p>
         </div>
-        <Badge variant={statusVariant(analysis.status)}>{analysis.status}</Badge>
+        <div className="flex items-center gap-2 shrink-0">
+          <Badge variant={statusVariant(analysis.status)}>{analysis.status}</Badge>
+          <CompetitorDeleteButton
+            projectId={project.id}
+            analysisId={analysis.id}
+            redirectTo={`/project/${project.id}/competitors`}
+            variant="button"
+          />
+        </div>
       </div>
 
       {analysis.status === "partial" && report && (

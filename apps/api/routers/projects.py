@@ -11,7 +11,13 @@ from pydantic import BaseModel, Field
 
 from apps.api.auth import get_current_user
 from apps.api.env import load_env_file
-from apps.api.rate_limit import check_competitor_rate_limit, check_rate_limit
+from apps.api.rate_limit import (
+    check_brief_rate_limit,
+    check_competitor_rate_limit,
+    check_rate_limit,
+)
+from apps.api.services.brief_errors import BriefGenerationError
+from apps.api.services.brief_pipeline import generate_and_persist_brief
 from apps.api.services.competitor_pipeline import run_competitor_analysis
 from apps.api.services.page_auditor import run_audit
 
@@ -32,6 +38,11 @@ class AuditCreate(BaseModel):
 class BriefCreate(BaseModel):
     keyword: str = Field(min_length=1)
     title: str | None = None
+
+
+class BriefGenerateCreate(BaseModel):
+    audit_id: str = Field(min_length=1)
+    competitor_analysis_id: str = Field(min_length=1)
 
 
 class DraftCreate(BaseModel):
@@ -97,6 +108,17 @@ def _audit_row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
             "audit_id": data.get("id"),
             "project_id": data.get("project_id"),
         }
+    return data
+
+
+def _brief_row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
+    data = _row_to_dict(row)
+    content = data.get("content")
+    if isinstance(content, str):
+        try:
+            data["content"] = json.loads(content)
+        except json.JSONDecodeError:
+            pass
     return data
 
 
@@ -369,7 +391,78 @@ async def list_project_briefs(
         "SELECT * FROM public.briefs WHERE project_id = $1 ORDER BY created_at DESC",
         project_id,
     )
-    return [_row_to_dict(r) for r in rows]
+    return [_brief_row_to_dict(r) for r in rows]
+
+
+@router.post("/{project_id}/briefs/generate", status_code=201)
+async def generate_project_brief(
+    project_id: str,
+    body: BriefGenerateCreate,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    check_brief_rate_limit(current_user["id"])
+
+    try:
+        row = await generate_and_persist_brief(
+            db,
+            project_id=project_id,
+            user_id=current_user["id"],
+            audit_id=body.audit_id,
+            competitor_analysis_id=body.competitor_analysis_id,
+        )
+    except BriefGenerationError as exc:
+        status_code = 422 if "missing" in exc.user_message.lower() else 503
+        raise HTTPException(status_code=status_code, detail=exc.user_message) from exc
+    except asyncpg.PostgresError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Brief generation failed due to a database error.",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Brief generation failed. Please try again.",
+        ) from exc
+
+    return _brief_row_to_dict(row)
+
+
+@router.get("/{project_id}/briefs/{brief_id}")
+async def get_project_brief(
+    project_id: str,
+    brief_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    row = await db.fetchrow(
+        """SELECT * FROM public.briefs
+           WHERE id = $1 AND project_id = $2""",
+        brief_id,
+        project_id,
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Brief not found")
+    return _brief_row_to_dict(row)
+
+
+@router.delete("/{project_id}/briefs/{brief_id}", status_code=204)
+async def delete_project_brief(
+    project_id: str,
+    brief_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    result = await db.execute(
+        "DELETE FROM public.briefs WHERE id = $1 AND project_id = $2",
+        brief_id,
+        project_id,
+    )
+    if result == "DELETE 0":
+        raise HTTPException(status_code=404, detail="Brief not found")
 
 
 @router.post("/{project_id}/briefs", status_code=201)
@@ -388,7 +481,7 @@ async def create_project_brief(
         body.keyword,
         content,
     )
-    return _row_to_dict(row)
+    return _brief_row_to_dict(row)
 
 
 @router.get("/{project_id}/drafts")
@@ -463,11 +556,14 @@ async def list_competitor_analyses(
     db=Depends(get_db),
 ):
     await _require_owned_project(db, project_id, current_user["id"])
-    rows = await db.fetch(
-        """SELECT * FROM public.competitor_analyses
-           WHERE project_id = $1 ORDER BY created_at DESC""",
-        project_id,
-    )
+    try:
+        rows = await db.fetch(
+            """SELECT * FROM public.competitor_analyses
+               WHERE project_id = $1 ORDER BY created_at DESC""",
+            project_id,
+        )
+    except asyncpg.UndefinedTableError:
+        return []
     return [_competitor_row_to_dict(r) for r in rows]
 
 

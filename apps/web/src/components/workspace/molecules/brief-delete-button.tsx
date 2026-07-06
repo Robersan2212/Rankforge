@@ -7,22 +7,21 @@ import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "@/components/workspace/molecules/delete-confirm-dialog";
 import { cn } from "@/lib/utils";
 
-interface AuditDeleteButtonProps {
+interface BriefDeleteButtonProps {
   projectId: string;
-  auditId: string;
-  /** After delete, navigate here (e.g. audits list). Omit to only refresh. */
+  briefId: string;
   redirectTo?: string;
   className?: string;
   variant?: "icon" | "button";
 }
 
-export function AuditDeleteButton({
+export function BriefDeleteButton({
   projectId,
-  auditId,
+  briefId,
   redirectTo,
   className,
   variant = "icon",
-}: AuditDeleteButtonProps) {
+}: BriefDeleteButtonProps) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -34,7 +33,7 @@ export function AuditDeleteButton({
     setError(null);
     try {
       const res = await fetch(
-        `/api/projects/${projectId}/audits/${auditId}`,
+        `/api/projects/${projectId}/briefs/${briefId}`,
         { method: "DELETE" }
       );
 
@@ -42,7 +41,7 @@ export function AuditDeleteButton({
         const data = await res.json().catch(() => ({}));
         const detail = data.detail;
         setError(
-          typeof detail === "string" ? detail : "Could not delete this audit."
+          typeof detail === "string" ? detail : "Could not delete this brief."
         );
         return;
       }
@@ -58,7 +57,7 @@ export function AuditDeleteButton({
         });
       }
     } catch {
-      setError("Could not delete this audit. Try again.");
+      setError("Could not delete this brief. Try again.");
     } finally {
       setDeleting(false);
     }
@@ -84,7 +83,7 @@ export function AuditDeleteButton({
         className={cn("text-destructive hover:text-destructive", className)}
       >
         <Trash2 className="size-4 mr-2" />
-        Delete audit
+        Delete brief
       </Button>
     ) : (
       <Button
@@ -93,7 +92,7 @@ export function AuditDeleteButton({
         size="icon"
         onClick={() => setDialogOpen(true)}
         disabled={deleting || isPending}
-        aria-label="Delete audit"
+        aria-label="Delete brief"
         className={cn(
           "shrink-0 text-muted-foreground hover:text-destructive",
           className
@@ -109,10 +108,10 @@ export function AuditDeleteButton({
       <DeleteConfirmDialog
         open={dialogOpen}
         onOpenChange={handleOpenChange}
-        title="Delete audit?"
-        description="This audit and its report will be permanently removed. This cannot be undone."
+        title="Delete brief?"
+        description="This content brief will be permanently removed. This cannot be undone."
         error={error}
-        confirmLabel="Delete audit"
+        confirmLabel="Delete brief"
         onConfirm={handleConfirmDelete}
         loading={deleting}
       />

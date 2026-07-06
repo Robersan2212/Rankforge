@@ -8,6 +8,7 @@ Three independent MCP microservices built with [`@modelcontextprotocol/sdk`](htt
 | `serp` | 3002 | `get_top_results`, `fetch_serp` |
 | `competitor-analysis` | 3003 | `extract_page`, `analyze_competitors` |
 | `content-db` | 3004 | `save_brief`, `list_briefs` |
+| `content-brief` | 3005 | `generate_content_brief` |
 
 ## Prerequisites
 
@@ -23,6 +24,7 @@ cd mcp/page-auditor && npm install && npm start
 cd mcp/serp && npm install && npm start
 cd mcp/competitor-analysis && npm install && npm start
 cd mcp/content-db && npm install && npm start
+cd mcp/content-brief && npm install && npm start
 ```
 
 Health: `GET http://127.0.0.1:3001/health`  
