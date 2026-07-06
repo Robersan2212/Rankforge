@@ -1,16 +1,11 @@
 import { proxyApiRequest } from "@/lib/api-proxy";
-<<<<<<< HEAD
-=======
 import { revalidateProjectWorkspace } from "@/lib/revalidate-workspace";
->>>>>>> origin/main
 
 type RouteContext = { params: { id: string } };
 
 export async function GET(_request: Request, { params }: RouteContext) {
   return proxyApiRequest(`/api/projects/${params.id}/competitor-analyses`);
 }
-<<<<<<< HEAD
-=======
 
 export async function POST(request: Request, { params }: RouteContext) {
   const body = await request.json();
@@ -29,4 +24,3 @@ export async function POST(request: Request, { params }: RouteContext) {
 
   return response;
 }
->>>>>>> origin/main

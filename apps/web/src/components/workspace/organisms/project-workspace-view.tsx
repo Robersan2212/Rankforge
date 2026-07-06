@@ -42,29 +42,23 @@ export function ProjectWorkspaceView({
 
       <ProjectMetricRow stats={stats} sectionLabel={sectionConfig.label} />
 
-<<<<<<< HEAD
       {section === "briefs" ? (
         <BriefGenerationPanel
           projectId={project.id}
           briefs={items as Brief[]}
           audits={audits}
           competitorAnalyses={competitorAnalyses}
-=======
-      {section === "competitors" ? (
+        />
+      ) : section === "competitors" ? (
         <CompetitorAnalysisPanel
           projectId={project.id}
           items={items as CompetitorAnalysis[]}
->>>>>>> origin/main
         />
       ) : (
         <ProjectResourcePanel
           projectId={project.id}
           section={section}
-<<<<<<< HEAD
-          items={items}
-=======
           items={items as Audit[] | Brief[] | Draft[] | TrackedKeyword[]}
->>>>>>> origin/main
         />
       )}
     </div>

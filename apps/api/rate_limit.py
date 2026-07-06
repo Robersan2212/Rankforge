@@ -8,17 +8,13 @@ _WINDOW_SECONDS = 60
 _MAX_REQUESTS = 10
 _BRIEF_WINDOW_SECONDS = 3600
 _BRIEF_MAX_REQUESTS = 5
-
-_buckets: dict[str, list[float]] = defaultdict(list)
-<<<<<<< HEAD
-_brief_buckets: dict[str, list[float]] = defaultdict(list)
-=======
-_competitor_buckets: dict[str, list[float]] = defaultdict(list)
->>>>>>> origin/main
-_lock = Lock()
-
 _COMPETITOR_WINDOW_SECONDS = 3600
 _COMPETITOR_MAX_REQUESTS = 5
+
+_buckets: dict[str, list[float]] = defaultdict(list)
+_brief_buckets: dict[str, list[float]] = defaultdict(list)
+_competitor_buckets: dict[str, list[float]] = defaultdict(list)
+_lock = Lock()
 
 
 def check_rate_limit(user_id: str, *, max_requests: int = _MAX_REQUESTS) -> None:
@@ -58,16 +54,6 @@ def check_brief_rate_limit(
         _brief_buckets[user_id].append(now)
 
 
-def reset_rate_limits_for_tests() -> None:
-    """Clear in-memory buckets (test helper only)."""
-    with _lock:
-        _buckets.clear()
-<<<<<<< HEAD
-        _brief_buckets.clear()
-=======
-        _competitor_buckets.clear()
-
-
 def check_competitor_rate_limit(
     user_id: str, *, max_requests: int = _COMPETITOR_MAX_REQUESTS
 ) -> None:
@@ -87,4 +73,11 @@ def check_competitor_rate_limit(
                 ),
             )
         _competitor_buckets[user_id].append(now)
->>>>>>> origin/main
+
+
+def reset_rate_limits_for_tests() -> None:
+    """Clear in-memory buckets (test helper only)."""
+    with _lock:
+        _buckets.clear()
+        _brief_buckets.clear()
+        _competitor_buckets.clear()

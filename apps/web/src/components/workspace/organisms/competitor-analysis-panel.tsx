@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/workspace/molecules/empty-state";
+import { CompetitorDeleteButton } from "@/components/workspace/molecules/competitor-delete-button";
 import { ListRow } from "@/components/workspace/molecules/list-row";
 import { SECTION_CONFIG } from "@/lib/workspace";
 import type { CompetitorAnalysis } from "@/lib/types";
@@ -202,6 +203,12 @@ export function CompetitorAnalysisPanel({
                 subtitle={`${statusLabel(item.status)} · ${formatDate(item.created_at)}`}
                 initials="CA"
                 href={`/project/${projectId}/competitors/${item.id}`}
+                trailing={
+                  <CompetitorDeleteButton
+                    projectId={projectId}
+                    analysisId={item.id}
+                  />
+                }
               />
             ))}
           </div>

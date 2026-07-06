@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { DeleteConfirmDialog } from "@/components/workspace/molecules/delete-confirm-dialog";
 import { cn } from "@/lib/utils";
 
 interface BriefDeleteButtonProps {
@@ -22,15 +23,14 @@ export function BriefDeleteButton({
   variant = "icon",
 }: BriefDeleteButtonProps) {
   const router = useRouter();
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  async function handleDelete() {
-    if (!window.confirm("Delete this brief? This cannot be undone.")) {
-      return;
-    }
-
+  async function handleConfirmDelete() {
     setDeleting(true);
+    setError(null);
     try {
       const res = await fetch(
         `/api/projects/${projectId}/briefs/${briefId}`,
@@ -40,12 +40,13 @@ export function BriefDeleteButton({
       if (!res.ok && res.status !== 204) {
         const data = await res.json().catch(() => ({}));
         const detail = data.detail;
-        window.alert(
+        setError(
           typeof detail === "string" ? detail : "Could not delete this brief."
         );
         return;
       }
 
+      setDialogOpen(false);
       if (redirectTo) {
         startTransition(() => {
           router.push(redirectTo);
@@ -56,42 +57,64 @@ export function BriefDeleteButton({
         });
       }
     } catch {
-      window.alert("Could not delete this brief. Try again.");
+      setError("Could not delete this brief. Try again.");
     } finally {
       setDeleting(false);
     }
   }
 
-  if (variant === "button") {
-    return (
+  function handleOpenChange(open: boolean) {
+    if (!deleting) {
+      setDialogOpen(open);
+      if (!open) {
+        setError(null);
+      }
+    }
+  }
+
+  const trigger =
+    variant === "button" ? (
       <Button
         type="button"
         variant="outline"
         size="sm"
-        onClick={handleDelete}
+        onClick={() => setDialogOpen(true)}
         disabled={deleting || isPending}
         className={cn("text-destructive hover:text-destructive", className)}
       >
         <Trash2 className="size-4 mr-2" />
-        {deleting ? "Deleting…" : "Delete brief"}
+        Delete brief
+      </Button>
+    ) : (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={() => setDialogOpen(true)}
+        disabled={deleting || isPending}
+        aria-label="Delete brief"
+        className={cn(
+          "shrink-0 text-muted-foreground hover:text-destructive",
+          className
+        )}
+      >
+        <Trash2 className="size-4" />
       </Button>
     );
-  }
 
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      onClick={handleDelete}
-      disabled={deleting || isPending}
-      aria-label="Delete brief"
-      className={cn(
-        "shrink-0 text-muted-foreground hover:text-destructive",
-        className
-      )}
-    >
-      <Trash2 className="size-4" />
-    </Button>
+    <>
+      {trigger}
+      <DeleteConfirmDialog
+        open={dialogOpen}
+        onOpenChange={handleOpenChange}
+        title="Delete brief?"
+        description="This content brief will be permanently removed. This cannot be undone."
+        error={error}
+        confirmLabel="Delete brief"
+        onConfirm={handleConfirmDelete}
+        loading={deleting}
+      />
+    </>
   );
 }
