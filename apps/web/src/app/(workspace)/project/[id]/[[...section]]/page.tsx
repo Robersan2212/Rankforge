@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { AuditDetailView } from "@/components/workspace/organisms/audit-detail-view";
+import { BriefDetailView } from "@/components/workspace/organisms/brief-detail-view";
 import { ProjectWorkspaceView } from "@/components/workspace/organisms/project-workspace-view";
 import { fetchFromApi, fetchProject } from "@/lib/api-server";
 import {
@@ -10,6 +11,7 @@ import {
 import type {
   Audit,
   Brief,
+  CompetitorAnalysis,
   Draft,
   Project,
   ProjectStats,
@@ -89,6 +91,35 @@ export default async function ProjectSectionPage({
     return <AuditDetailView project={project} audit={audit} />;
   }
 
+  if (sectionParam === "briefs" && sectionParts[1]) {
+    const briefId = sectionParts[1];
+    if (!UUID_RE.test(briefId)) {
+      notFound();
+    }
+
+    const [projectRes, briefRes] = await Promise.all([
+      fetchProject(params.id),
+      fetchFromApi(`/api/projects/${params.id}/briefs/${briefId}`),
+    ]);
+
+    if (projectRes.status === 404 || !projectRes.ok) {
+      notFound();
+    }
+    if (briefRes.status === 401) {
+      redirect("/login");
+    }
+    if (briefRes.status === 404 || !briefRes.ok) {
+      notFound();
+    }
+
+    const [project, brief]: [Project, Brief] = await Promise.all([
+      projectRes.json(),
+      briefRes.json(),
+    ]);
+
+    return <BriefDetailView project={project} brief={brief} />;
+  }
+
   if (sectionParts.length > 1) {
     notFound();
   }
@@ -107,12 +138,26 @@ export default async function ProjectSectionPage({
     ? await statsRes.json()
     : EMPTY_PROJECT_STATS;
 
+  let audits: Audit[] = [];
+  let competitorAnalyses: CompetitorAnalysis[] = [];
+
+  if (sectionParam === "briefs") {
+    const [auditsRes, competitorsRes] = await Promise.all([
+      fetchFromApi(`/api/projects/${params.id}/audits`),
+      fetchFromApi(`/api/projects/${params.id}/competitor-analyses`),
+    ]);
+    audits = auditsRes.ok ? await auditsRes.json() : [];
+    competitorAnalyses = competitorsRes.ok ? await competitorsRes.json() : [];
+  }
+
   return (
     <ProjectWorkspaceView
       project={project}
       section={sectionParam}
       items={items as Audit[] | Brief[] | Draft[] | TrackedKeyword[]}
       stats={stats}
+      audits={audits}
+      competitorAnalyses={competitorAnalyses}
     />
   );
 }

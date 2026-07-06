@@ -1,3 +1,4 @@
+import { BriefGenerationPanel } from "@/components/workspace/organisms/brief-generation-panel";
 import { ProjectMetricRow } from "@/components/workspace/organisms/metric-row";
 import { ProjectResourcePanel } from "@/components/workspace/organisms/project-resource-panel";
 import { WorkspaceHeader } from "@/components/workspace/organisms/workspace-header";
@@ -5,6 +6,7 @@ import { SECTION_CONFIG, type ProjectSection } from "@/lib/workspace";
 import type {
   Audit,
   Brief,
+  CompetitorAnalysis,
   Draft,
   Project,
   ProjectStats,
@@ -16,6 +18,8 @@ interface ProjectWorkspaceViewProps {
   section: ProjectSection;
   items: Audit[] | Brief[] | Draft[] | TrackedKeyword[];
   stats: ProjectStats;
+  audits?: Audit[];
+  competitorAnalyses?: CompetitorAnalysis[];
 }
 
 export function ProjectWorkspaceView({
@@ -23,6 +27,8 @@ export function ProjectWorkspaceView({
   section,
   items,
   stats,
+  audits = [],
+  competitorAnalyses = [],
 }: ProjectWorkspaceViewProps) {
   const sectionConfig = SECTION_CONFIG[section];
 
@@ -35,11 +41,20 @@ export function ProjectWorkspaceView({
 
       <ProjectMetricRow stats={stats} sectionLabel={sectionConfig.label} />
 
-      <ProjectResourcePanel
-        projectId={project.id}
-        section={section}
-        items={items}
-      />
+      {section === "briefs" ? (
+        <BriefGenerationPanel
+          projectId={project.id}
+          briefs={items as Brief[]}
+          audits={audits}
+          competitorAnalyses={competitorAnalyses}
+        />
+      ) : (
+        <ProjectResourcePanel
+          projectId={project.id}
+          section={section}
+          items={items}
+        />
+      )}
     </div>
   );
 }

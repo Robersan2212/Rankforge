@@ -26,8 +26,24 @@ export interface Brief {
   id: string;
   project_id: string;
   keyword: string;
-  content: { title?: string } | Record<string, unknown> | null;
+  content: import("@/lib/brief-types").ContentBriefPayload | { title?: string } | Record<string, unknown> | null;
+  source_audit_id?: string | null;
+  source_competitor_analysis_id?: string | null;
+  created_by?: string | null;
+  status?: string | null;
   created_at: string;
+}
+
+export interface CompetitorAnalysis {
+  id: string;
+  project_id: string;
+  keyword: string;
+  user_page_url: string;
+  status: string;
+  report?: Record<string, unknown> | null;
+  error?: string | null;
+  created_at: string;
+  completed_at?: string | null;
 }
 
 export interface Draft {

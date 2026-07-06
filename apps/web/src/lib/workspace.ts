@@ -41,7 +41,7 @@ export const SECTION_CONFIG: Record<
     label: "Briefs",
     icon: FileText,
     singular: "brief",
-    description: "Content briefs stored per project.",
+    description: "AI content briefs from audits and competitor analysis.",
   },
   editor: {
     label: "Editor",
