@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  BarChart2,
   FileText,
   LayoutDashboard,
   PenLine,
@@ -9,6 +10,7 @@ import {
 
 export const PROJECT_SECTIONS = [
   "audits",
+  "competitors",
   "briefs",
   "editor",
   "keywords",
@@ -22,6 +24,7 @@ export function isProjectSection(value: string): value is ProjectSection {
 
 export const SECTION_API_PATH: Record<ProjectSection, string> = {
   audits: "audits",
+  competitors: "competitor-analyses",
   briefs: "briefs",
   editor: "drafts",
   keywords: "keywords",
@@ -36,6 +39,12 @@ export const SECTION_CONFIG: Record<
     icon: Search,
     singular: "audit",
     description: "Save page audits scoped to this project.",
+  },
+  competitors: {
+    label: "Competitors",
+    icon: BarChart2,
+    singular: "analysis",
+    description: "SERP competitor analysis and content gap insights.",
   },
   briefs: {
     label: "Briefs",

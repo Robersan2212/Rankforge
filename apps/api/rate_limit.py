@@ -10,8 +10,15 @@ _BRIEF_WINDOW_SECONDS = 3600
 _BRIEF_MAX_REQUESTS = 5
 
 _buckets: dict[str, list[float]] = defaultdict(list)
+<<<<<<< HEAD
 _brief_buckets: dict[str, list[float]] = defaultdict(list)
+=======
+_competitor_buckets: dict[str, list[float]] = defaultdict(list)
+>>>>>>> origin/main
 _lock = Lock()
+
+_COMPETITOR_WINDOW_SECONDS = 3600
+_COMPETITOR_MAX_REQUESTS = 5
 
 
 def check_rate_limit(user_id: str, *, max_requests: int = _MAX_REQUESTS) -> None:
@@ -55,4 +62,29 @@ def reset_rate_limits_for_tests() -> None:
     """Clear in-memory buckets (test helper only)."""
     with _lock:
         _buckets.clear()
+<<<<<<< HEAD
         _brief_buckets.clear()
+=======
+        _competitor_buckets.clear()
+
+
+def check_competitor_rate_limit(
+    user_id: str, *, max_requests: int = _COMPETITOR_MAX_REQUESTS
+) -> None:
+    """Sliding-window rate limit for competitor analysis (5 per hour)."""
+    now = time.monotonic()
+    cutoff = now - _COMPETITOR_WINDOW_SECONDS
+
+    with _lock:
+        timestamps = _competitor_buckets[user_id]
+        _competitor_buckets[user_id] = [t for t in timestamps if t > cutoff]
+        if len(_competitor_buckets[user_id]) >= max_requests:
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "Competitor analysis rate limit exceeded "
+                    "(5 per hour). Try again later."
+                ),
+            )
+        _competitor_buckets[user_id].append(now)
+>>>>>>> origin/main

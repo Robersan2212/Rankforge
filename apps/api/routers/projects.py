@@ -6,14 +6,19 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from apps.api.auth import get_current_user
 from apps.api.env import load_env_file
+<<<<<<< HEAD
 from apps.api.rate_limit import check_brief_rate_limit, check_rate_limit
 from apps.api.services.brief_errors import BriefGenerationError
 from apps.api.services.brief_pipeline import generate_and_persist_brief
+=======
+from apps.api.rate_limit import check_competitor_rate_limit, check_rate_limit
+from apps.api.services.competitor_pipeline import run_competitor_analysis
+>>>>>>> origin/main
 from apps.api.services.page_auditor import run_audit
 
 load_env_file()
@@ -48,6 +53,11 @@ class DraftCreate(BaseModel):
 
 class KeywordCreate(BaseModel):
     keyword: str = Field(min_length=1)
+
+
+class CompetitorAnalysisCreate(BaseModel):
+    keyword: str = Field(min_length=1)
+    user_page_url: str = Field(min_length=1)
 
 
 def slugify(name: str) -> str:
@@ -101,6 +111,7 @@ def _audit_row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
     return data
 
 
+<<<<<<< HEAD
 def _brief_row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
     data = _row_to_dict(row)
     content = data.get("content")
@@ -116,6 +127,16 @@ def _competitor_row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
     return _row_to_dict(row)
 
 
+=======
+def _competitor_row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
+    data = _row_to_dict(row)
+    report = data.get("report")
+    if isinstance(report, dict):
+        data["report"] = report
+    return data
+
+
+>>>>>>> origin/main
 async def _ensure_user_profile(db, user_id: str, email: str) -> None:
     await db.execute(
         """INSERT INTO public.users (id, email)
@@ -243,7 +264,8 @@ async def get_project_stats(
           (SELECT COUNT(*)::int FROM public.audits WHERE project_id = $1) AS audits,
           (SELECT COUNT(*)::int FROM public.briefs WHERE project_id = $1) AS briefs,
           (SELECT COUNT(*)::int FROM public.drafts WHERE project_id = $1) AS drafts,
-          (SELECT COUNT(*)::int FROM public.tracked_keywords WHERE project_id = $1) AS keywords
+          (SELECT COUNT(*)::int FROM public.tracked_keywords WHERE project_id = $1) AS keywords,
+          (SELECT COUNT(*)::int FROM public.competitor_analyses WHERE project_id = $1) AS competitors
         """,
         project_id,
     )
@@ -572,3 +594,91 @@ async def create_project_keyword(
         body.keyword,
     )
     return _row_to_dict(row)
+
+
+@router.get("/{project_id}/competitor-analyses")
+async def list_competitor_analyses(
+    project_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    rows = await db.fetch(
+        """SELECT * FROM public.competitor_analyses
+           WHERE project_id = $1 ORDER BY created_at DESC""",
+        project_id,
+    )
+    return [_competitor_row_to_dict(r) for r in rows]
+
+
+@router.post("/{project_id}/competitor-analyses", status_code=201)
+async def create_competitor_analysis(
+    project_id: str,
+    body: CompetitorAnalysisCreate,
+    background_tasks: BackgroundTasks,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    check_competitor_rate_limit(current_user["id"])
+
+    try:
+        row = await db.fetchrow(
+            """INSERT INTO public.competitor_analyses
+               (project_id, keyword, user_page_url, status)
+               VALUES ($1, $2, $3, 'pending') RETURNING *""",
+            project_id,
+            body.keyword.strip(),
+            body.user_page_url.strip(),
+        )
+    except asyncpg.UndefinedTableError:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Competitor analysis tables are missing. Apply migration "
+                "0004_competitor_analyses.sql (supabase db push or "
+                "python apps/api/scripts/apply_competitor_migration.py)."
+            ),
+        ) from None
+
+    analysis_id = str(row["id"])
+    background_tasks.add_task(run_competitor_analysis, analysis_id)
+
+    return _competitor_row_to_dict(row)
+
+
+@router.get("/{project_id}/competitor-analyses/{analysis_id}")
+async def get_competitor_analysis(
+    project_id: str,
+    analysis_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    row = await db.fetchrow(
+        """SELECT * FROM public.competitor_analyses
+           WHERE id = $1 AND project_id = $2""",
+        analysis_id,
+        project_id,
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Competitor analysis not found")
+    return _competitor_row_to_dict(row)
+
+
+@router.delete("/{project_id}/competitor-analyses/{analysis_id}", status_code=204)
+async def delete_competitor_analysis(
+    project_id: str,
+    analysis_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    result = await db.execute(
+        """DELETE FROM public.competitor_analyses
+           WHERE id = $1 AND project_id = $2""",
+        analysis_id,
+        project_id,
+    )
+    if result == "DELETE 0":
+        raise HTTPException(status_code=404, detail="Competitor analysis not found")

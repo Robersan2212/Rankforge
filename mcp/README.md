@@ -5,7 +5,8 @@ Three independent MCP microservices built with [`@modelcontextprotocol/sdk`](htt
 | Server | Port | Tools |
 |--------|------|-------|
 | `page-auditor` | 3001 | `audit_page` |
-| `serp` | 3002 | `fetch_serp` |
+| `serp` | 3002 | `get_top_results`, `fetch_serp` |
+| `competitor-analysis` | 3003 | `extract_page`, `analyze_competitors` |
 | `content-db` | 3004 | `save_brief`, `list_briefs` |
 | `content-brief` | 3005 | `generate_content_brief` |
 
@@ -13,7 +14,7 @@ Three independent MCP microservices built with [`@modelcontextprotocol/sdk`](htt
 
 - Node.js 18+
 - Playwright Chromium (`page-auditor` runs `playwright install chromium` on `npm install`)
-- `SERP_API_KEY` for live SERP (SerpAPI) — optional for `serp`
+- `SERP_API_KEY` for live SERP (SerpAPI) — set in `mcp/serp/.env` or shell env
 - `DATABASE_URL` (Supabase Postgres) for `content-db`
 
 ## Run locally (HTTP)
@@ -21,12 +22,16 @@ Three independent MCP microservices built with [`@modelcontextprotocol/sdk`](htt
 ```bash
 cd mcp/page-auditor && npm install && npm start
 cd mcp/serp && npm install && npm start
+cd mcp/competitor-analysis && npm install && npm start
 cd mcp/content-db && npm install && npm start
 cd mcp/content-brief && npm install && npm start
 ```
 
 Health: `GET http://127.0.0.1:3001/health`  
 REST audit: `POST http://127.0.0.1:3001/audit` with body `{ "url": "https://..." }` (used by FastAPI)  
+REST SERP: `POST http://127.0.0.1:3002/serp` with body `{ "keyword": "seo tips", "count": 10 }`  
+REST extract: `POST http://127.0.0.1:3003/extract` with body `{ "url": "https://..." }`  
+REST batch: `POST http://127.0.0.1:3003/analyze-batch` with body `{ "urls": [{ "url": "...", "rank_position": 1 }] }`  
 MCP endpoint: `POST http://127.0.0.1:3001/mcp`
 
 ## Run in Cursor (stdio)
@@ -103,7 +108,7 @@ See `mcp/examples/claude-mcp-request.mjs` for a runnable template.
 
 | Variable | Server | Purpose |
 |----------|--------|---------|
-| `PORT` | all | HTTP port (defaults 3001 / 3002 / 3004) |
+| `PORT` | all | HTTP port (defaults 3001 / 3002 / 3003 / 3004) |
 | `SERP_API_KEY` | serp | SerpAPI key |
 | `DATABASE_URL` | content-db | Postgres connection string |
 

@@ -1,6 +1,10 @@
 import { notFound, redirect } from "next/navigation";
 import { AuditDetailView } from "@/components/workspace/organisms/audit-detail-view";
+<<<<<<< HEAD
 import { BriefDetailView } from "@/components/workspace/organisms/brief-detail-view";
+=======
+import { CompetitorDetailView } from "@/components/workspace/organisms/competitor-detail-view";
+>>>>>>> origin/main
 import { ProjectWorkspaceView } from "@/components/workspace/organisms/project-workspace-view";
 import { fetchFromApi, fetchProject } from "@/lib/api-server";
 import {
@@ -29,6 +33,7 @@ const EMPTY_PROJECT_STATS: ProjectStats = {
   briefs: 0,
   drafts: 0,
   keywords: 0,
+  competitors: 0,
 };
 
 const UUID_RE =
@@ -91,6 +96,7 @@ export default async function ProjectSectionPage({
     return <AuditDetailView project={project} audit={audit} />;
   }
 
+<<<<<<< HEAD
   if (sectionParam === "briefs" && sectionParts[1]) {
     const briefId = sectionParts[1];
     if (!UUID_RE.test(briefId)) {
@@ -100,11 +106,25 @@ export default async function ProjectSectionPage({
     const [projectRes, briefRes] = await Promise.all([
       fetchProject(params.id),
       fetchFromApi(`/api/projects/${params.id}/briefs/${briefId}`),
+=======
+  if (sectionParam === "competitors" && sectionParts[1]) {
+    const analysisId = sectionParts[1];
+    if (!UUID_RE.test(analysisId)) {
+      notFound();
+    }
+
+    const [projectRes, analysisRes] = await Promise.all([
+      fetchProject(params.id),
+      fetchFromApi(
+        `/api/projects/${params.id}/competitor-analyses/${analysisId}`
+      ),
+>>>>>>> origin/main
     ]);
 
     if (projectRes.status === 404 || !projectRes.ok) {
       notFound();
     }
+<<<<<<< HEAD
     if (briefRes.status === 401) {
       redirect("/login");
     }
@@ -118,6 +138,19 @@ export default async function ProjectSectionPage({
     ]);
 
     return <BriefDetailView project={project} brief={brief} />;
+=======
+    if (analysisRes.status === 401) {
+      redirect("/login");
+    }
+    if (analysisRes.status === 404 || !analysisRes.ok) {
+      notFound();
+    }
+
+    const [project, analysis]: [Project, CompetitorAnalysis] =
+      await Promise.all([projectRes.json(), analysisRes.json()]);
+
+    return <CompetitorDetailView project={project} analysis={analysis} />;
+>>>>>>> origin/main
   }
 
   if (sectionParts.length > 1) {
@@ -154,7 +187,7 @@ export default async function ProjectSectionPage({
     <ProjectWorkspaceView
       project={project}
       section={sectionParam}
-      items={items as Audit[] | Brief[] | Draft[] | TrackedKeyword[]}
+      items={items as Audit[] | Brief[] | Draft[] | TrackedKeyword[] | CompetitorAnalysis[]}
       stats={stats}
       audits={audits}
       competitorAnalyses={competitorAnalyses}

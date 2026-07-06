@@ -41,6 +41,8 @@ function getItemTitle(section: ProjectSection, item: SectionItem): string {
       return (item as Draft).title ?? "Untitled draft";
     case "keywords":
       return (item as TrackedKeyword).keyword;
+    case "competitors":
+      return "competitor analysis";
   }
 }
 
@@ -67,6 +69,8 @@ function getItemSubtitle(section: ProjectSection, item: SectionItem): string {
     }
     case "keywords":
       return `Tracked ${formatDate((item as TrackedKeyword).created_at)}`;
+    case "competitors":
+      return "";
   }
 }
 
@@ -89,6 +93,11 @@ function buildPayload(
       };
     case "keywords":
       return { keyword: form.keyword.trim() };
+    case "competitors":
+      return {
+        keyword: form.keyword.trim(),
+        user_page_url: form.url.trim(),
+      };
   }
 }
 
