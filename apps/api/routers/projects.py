@@ -51,6 +51,15 @@ class DraftCreate(BaseModel):
     brief_id: str | None = None
 
 
+class DraftUpdate(BaseModel):
+    title: str | None = None
+    content: str | None = None
+    brief_id: str | None = None
+
+
+MAX_DRAFT_CONTENT_LENGTH = 500_000
+
+
 class KeywordCreate(BaseModel):
     keyword: str = Field(min_length=1)
 
@@ -148,6 +157,28 @@ async def _require_owned_project(db, project_id: str, user_id: str) -> None:
     )
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
+
+
+async def _require_project_brief(
+    db, project_id: str, brief_id: str | None
+) -> None:
+    if brief_id is None:
+        return
+    row = await db.fetchrow(
+        "SELECT id FROM public.briefs WHERE id = $1 AND project_id = $2",
+        brief_id,
+        project_id,
+    )
+    if row is None:
+        raise HTTPException(status_code=400, detail="Brief not found in this project")
+
+
+def _validate_draft_content(content: str | None) -> None:
+    if content is not None and len(content) > MAX_DRAFT_CONTENT_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Draft content exceeds maximum length of {MAX_DRAFT_CONTENT_LENGTH} characters",
+        )
 
 
 @router.get("/stats")
@@ -506,6 +537,8 @@ async def create_project_draft(
     db=Depends(get_db),
 ):
     await _require_owned_project(db, project_id, current_user["id"])
+    _validate_draft_content(body.content)
+    await _require_project_brief(db, project_id, body.brief_id)
     row = await db.fetchrow(
         """INSERT INTO public.drafts (project_id, brief_id, title, content)
            VALUES ($1, $2::uuid, $3, $4) RETURNING *""",
@@ -513,6 +546,88 @@ async def create_project_draft(
         body.brief_id,
         body.title,
         body.content,
+    )
+    return _row_to_dict(row)
+
+
+@router.get("/{project_id}/drafts/{draft_id}")
+async def get_project_draft(
+    project_id: str,
+    draft_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    row = await db.fetchrow(
+        """SELECT * FROM public.drafts
+           WHERE id = $1 AND project_id = $2""",
+        draft_id,
+        project_id,
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    return _row_to_dict(row)
+
+
+@router.patch("/{project_id}/drafts/{draft_id}")
+async def update_project_draft(
+    project_id: str,
+    draft_id: str,
+    body: DraftUpdate,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+
+    updates = body.model_dump(exclude_unset=True)
+    if not updates:
+        row = await db.fetchrow(
+            "SELECT * FROM public.drafts WHERE id = $1 AND project_id = $2",
+            draft_id,
+            project_id,
+        )
+        if row is None:
+            raise HTTPException(status_code=404, detail="Draft not found")
+        return _row_to_dict(row)
+
+    if "content" in updates:
+        _validate_draft_content(updates["content"])
+    if "brief_id" in updates:
+        await _require_project_brief(db, project_id, updates["brief_id"])
+
+    existing = await db.fetchrow(
+        """SELECT id FROM public.drafts
+           WHERE id = $1 AND project_id = $2""",
+        draft_id,
+        project_id,
+    )
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Draft not found")
+
+    set_clauses: list[str] = []
+    values: list[Any] = []
+    idx = 1
+
+    for field in ("title", "content"):
+        if field in updates:
+            set_clauses.append(f"{field} = ${idx}")
+            values.append(updates[field])
+            idx += 1
+
+    if "brief_id" in updates:
+        set_clauses.append(f"brief_id = ${idx}::uuid")
+        values.append(updates["brief_id"])
+        idx += 1
+
+    set_clauses.append("updated_at = now()")
+    values.extend([draft_id, project_id])
+
+    row = await db.fetchrow(
+        f"""UPDATE public.drafts
+            SET {", ".join(set_clauses)}
+            WHERE id = ${idx} AND project_id = ${idx + 1}
+            RETURNING *""",
+        *values,
     )
     return _row_to_dict(row)
 

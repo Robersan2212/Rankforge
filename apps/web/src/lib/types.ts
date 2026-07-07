@@ -35,18 +35,6 @@ export interface Brief {
   created_at: string;
 }
 
-export interface CompetitorAnalysis {
-  id: string;
-  project_id: string;
-  keyword: string;
-  user_page_url: string;
-  status: string;
-  report?: Record<string, unknown> | null;
-  error?: string | null;
-  created_at: string;
-  completed_at?: string | null;
-}
-
 export interface Draft {
   id: string;
   project_id: string;

@@ -12,7 +12,7 @@ export interface ContentBriefPayload {
 }
 
 export function isGeneratedBriefContent(
-  content: Brief["content"]
+  content: unknown
 ): content is ContentBriefPayload {
   if (!content || typeof content !== "object") return false;
   const c = content as Record<string, unknown>;

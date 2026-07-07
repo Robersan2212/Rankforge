@@ -1,4 +1,5 @@
 import { BriefGenerationPanel } from "@/components/workspace/organisms/brief-generation-panel";
+import { EditorDraftPanel } from "@/components/workspace/organisms/editor-draft-panel";
 import { ProjectMetricRow } from "@/components/workspace/organisms/metric-row";
 import { CompetitorAnalysisPanel } from "@/components/workspace/organisms/competitor-analysis-panel";
 import { ProjectResourcePanel } from "@/components/workspace/organisms/project-resource-panel";
@@ -53,6 +54,11 @@ export function ProjectWorkspaceView({
         <CompetitorAnalysisPanel
           projectId={project.id}
           items={items as CompetitorAnalysis[]}
+        />
+      ) : section === "editor" ? (
+        <EditorDraftPanel
+          projectId={project.id}
+          drafts={items as Draft[]}
         />
       ) : (
         <ProjectResourcePanel

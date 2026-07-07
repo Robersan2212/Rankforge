@@ -56,7 +56,7 @@ export const SECTION_CONFIG: Record<
     label: "Editor",
     icon: PenLine,
     singular: "draft",
-    description: "Content drafts stored per project.",
+    description: "Rich text drafts with live SEO scoring.",
   },
   keywords: {
     label: "Keywords",
