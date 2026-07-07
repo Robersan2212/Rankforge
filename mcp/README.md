@@ -1,6 +1,6 @@
 # Rankforge MCP servers
 
-Three independent MCP microservices built with [`@modelcontextprotocol/sdk`](https://www.npmjs.com/package/@modelcontextprotocol/sdk). Each exposes tools over **Streamable HTTP** (for deployment / Claude API connector) and **stdio** (for Cursor).
+Five independent MCP microservices built with [`@modelcontextprotocol/sdk`](https://www.npmjs.com/package/@modelcontextprotocol/sdk). Each exposes tools over **Streamable HTTP** (for deployment / Claude API connector) and **stdio** (for Cursor).
 
 | Server | Port | Tools |
 |--------|------|-------|
@@ -16,6 +16,7 @@ Three independent MCP microservices built with [`@modelcontextprotocol/sdk`](htt
 - Playwright Chromium (`page-auditor` runs `playwright install chromium` on `npm install`)
 - `SERP_API_KEY` for live SERP (SerpAPI) — set in `mcp/serp/.env` or shell env
 - `DATABASE_URL` (Supabase Postgres) for `content-db`
+- `ANTHROPIC_API_KEY` for `content-brief`
 
 ## Run locally (HTTP)
 
@@ -27,90 +28,90 @@ cd mcp/content-db && npm install && npm start
 cd mcp/content-brief && npm install && npm start
 ```
 
-Health: `GET http://127.0.0.1:3001/health`  
-REST audit: `POST http://127.0.0.1:3001/audit` with body `{ "url": "https://..." }` (used by FastAPI)  
-REST SERP: `POST http://127.0.0.1:3002/serp` with body `{ "keyword": "seo tips", "count": 10 }`  
-REST extract: `POST http://127.0.0.1:3003/extract` with body `{ "url": "https://..." }`  
-REST batch: `POST http://127.0.0.1:3003/analyze-batch` with body `{ "urls": [{ "url": "...", "rank_position": 1 }] }`  
-MCP endpoint: `POST http://127.0.0.1:3001/mcp`
+### Health and REST endpoints
+
+| Server | Health | REST endpoint | Body |
+|--------|--------|---------------|------|
+| page-auditor | `GET /health` | `POST /audit` | `{ "url": "https://..." }` |
+| serp | `GET /health` | `POST /serp` | `{ "keyword": "seo tips", "count": 10 }` |
+| competitor-analysis | `GET /health` | `POST /extract` | `{ "url": "https://..." }` |
+| competitor-analysis | — | `POST /analyze-batch` | `{ "urls": [{ "url": "...", "rank_position": 1 }] }` |
+| content-db | `GET /health` | MCP only | — |
+| content-brief | `GET /health` | MCP only | — |
+
+MCP endpoint (all servers): `POST http://127.0.0.1:<port>/mcp`
+
+The FastAPI backend calls the page-auditor, serp, and competitor-analysis REST endpoints directly. See **FastAPI integration** below.
+
+## FastAPI integration
+
+When running the full Rankforge app, configure these in `apps/api/.env`:
+
+| Env var | Default | MCP server |
+|---------|---------|------------|
+| `PAGE_AUDITOR_URL` | `http://127.0.0.1:3001` | page-auditor |
+| `SERP_URL` | `http://127.0.0.1:3002` | serp |
+| `COMPETITOR_ANALYSIS_URL` | `http://127.0.0.1:3003` | competitor-analysis |
+
+Brief generation and content gap analysis run inside FastAPI via the Anthropic API (`ANTHROPIC_API_KEY` in `apps/api/.env`). The `content-brief` and `content-db` MCP servers are available for standalone use or Cursor integration.
 
 ## Run in Cursor (stdio)
 
-Add to Cursor MCP settings (`.cursor/mcp.json` in your project or global config):
+The project includes a preconfigured [`.cursor/mcp.json`](../.cursor/mcp.json) using workspace-relative paths:
 
 ```json
 {
   "mcpServers": {
     "rankforge-page-auditor": {
       "command": "npx",
-      "args": ["tsx", "c:/developer/senior-project/Rankforge/mcp/page-auditor/src/stdio.ts"],
-      "cwd": "c:/developer/senior-project/Rankforge/mcp/page-auditor"
+      "args": ["tsx", "src/stdio.ts"],
+      "cwd": "${workspaceFolder}/mcp/page-auditor"
     },
     "rankforge-serp": {
       "command": "npx",
-      "args": ["tsx", "c:/developer/senior-project/Rankforge/mcp/serp/src/stdio.ts"],
-      "cwd": "c:/developer/senior-project/Rankforge/mcp/serp",
-      "env": { "SERP_API_KEY": "your-serpapi-key" }
-    },
-    "rankforge-content-db": {
-      "command": "npx",
-      "args": ["tsx", "c:/developer/senior-project/Rankforge/mcp/content-db/src/stdio.ts"],
-      "cwd": "c:/developer/senior-project/Rankforge/mcp/content-db",
-      "env": { "DATABASE_URL": "postgresql://..." }
+      "args": ["tsx", "src/stdio.ts"],
+      "cwd": "${workspaceFolder}/mcp/serp"
     }
+  }
+}
+```
+
+For servers that require secrets, add an `env` block (never commit real values):
+
+```json
+{
+  "rankforge-serp": {
+    "command": "npx",
+    "args": ["tsx", "src/stdio.ts"],
+    "cwd": "${workspaceFolder}/mcp/serp",
+    "env": { "SERP_API_KEY": "<your-serpapi-key>" }
+  },
+  "rankforge-content-db": {
+    "command": "npx",
+    "args": ["tsx", "src/stdio.ts"],
+    "cwd": "${workspaceFolder}/mcp/content-db",
+    "env": { "DATABASE_URL": "<your-database-url>" }
   }
 }
 ```
 
 ## Claude API (remote connector)
 
-The Claude API MCP connector requires **HTTPS** URLs. Deploy a server (Railway, Render, Docker) or tunnel localhost, then call:
+The Claude API MCP connector requires **HTTPS** URLs. Deploy a server (Railway, Render, Docker) or tunnel localhost, then reference the deployed `/mcp` endpoint in your Anthropic API request.
 
-```typescript
-import Anthropic from "@anthropic-ai/sdk";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-const response = await client.beta.messages.create({
-  model: "claude-sonnet-4-20250514",
-  max_tokens: 4096,
-  betas: ["mcp-client-2025-11-20"],
-  messages: [
-    {
-      role: "user",
-      content:
-        "Audit https://example.com and summarize the top SEO issues.",
-    },
-  ],
-  mcp_servers: [
-    {
-      type: "url",
-      name: "page-auditor",
-      url: "https://your-deployed-host.example/mcp",
-    },
-    {
-      type: "url",
-      name: "serp",
-      url: "https://your-serp-host.example/mcp",
-      authorization_token: process.env.MCP_AUTH_TOKEN, // if you add auth
-    },
-  ],
-  tools: [
-    { type: "mcp_toolset", mcp_server_name: "page-auditor" },
-    { type: "mcp_toolset", mcp_server_name: "serp" },
-  ],
-});
-```
-
-See `mcp/examples/claude-mcp-request.mjs` for a runnable template.
+See [`mcp/examples/claude-mcp-request.mjs`](examples/claude-mcp-request.mjs) for a runnable template. Set `PAGE_AUDITOR_MCP_URL` and `SERP_MCP_URL` in your shell environment before running.
 
 ## Environment variables
 
 | Variable | Server | Purpose |
 |----------|--------|---------|
-| `PORT` | all | HTTP port (defaults 3001 / 3002 / 3003 / 3004) |
-| `SERP_API_KEY` | serp | SerpAPI key |
+| `PORT` | all | HTTP port (defaults: 3001 / 3002 / 3003 / 3004 / 3005) |
+| `SERP_API_KEY` | serp | SerpAPI key (required for live SERP) |
 | `DATABASE_URL` | content-db | Postgres connection string |
+| `ANTHROPIC_API_KEY` | content-brief | Anthropic API key (required for brief tool) |
+| `ANTHROPIC_BRIEF_MODEL` | content-brief | Optional model override (default: `claude-haiku-4-5`) |
+
+Template: [`mcp/serp/.env.example`](serp/.env.example)
 
 ## Docker (page-auditor)
 
@@ -125,3 +126,10 @@ docker run -p 3001:3001 rankforge-page-auditor
 - Do not expose MCP servers to the public internet without authentication.
 - `content-db` writes to `public.briefs`; use a DB role with least privilege.
 - RLS on Supabase still applies when using the anon/service patterns from the app; MCP uses direct `DATABASE_URL` — prefer a restricted DB user for MCP only.
+- Never commit API keys or database credentials. Use `.env` files (gitignored) or secure secret management in deployment.
+
+## Related docs
+
+- [README.md](../README.md) — project overview
+- [apps/api/README.md](../apps/api/README.md) — how FastAPI calls these services
+- [instructions/local-setup.md](../instructions/local-setup.md) — local development setup
