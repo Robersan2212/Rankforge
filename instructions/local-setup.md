@@ -12,11 +12,11 @@ How to run Rankforge on your machine: normal auth (Supabase login) or **dev bypa
 ## 1. Clone and open the repo
 
 ```powershell
-git clone https://github.com/Robersan2212/Rankforge.git
+git clone <repository-url>
 cd Rankforge
 ```
 
-Use whichever branch your team works on (for example `main` or `workspace`).
+Use whichever branch your team works on (for example `main`).
 
 ## 2. Apply the database schema
 
@@ -28,7 +28,17 @@ supabase link --project-ref <your-project-ref>
 supabase db push
 ```
 
-Or run `supabase/migrations/0001_initial_schema.sql` in the Supabase SQL editor.
+This applies all migrations in order:
+
+| Migration | Purpose |
+|-----------|---------|
+| `0001_initial_schema.sql` | users, projects, audits, briefs, drafts, tracked_keywords + RLS |
+| `0002_audits_fetched_at.sql` | `fetched_at` column on audits |
+| `0003_audits_report_column.sql` | Renames `results` → `report`, enforces `seo_score NOT NULL` |
+| `0004_competitor_analyses.sql` | competitor_analyses table, scraped_pages cache |
+| `0005_brief_generation.sql` | Brief traceability columns and status |
+
+Alternatively, run the migration SQL files in the Supabase SQL editor in numeric order.
 
 ## 3. Environment files
 
@@ -37,7 +47,7 @@ Copy the templates and fill in your project values. **Never commit** real `.env`
 ### `apps/web/.env.local`
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable-key>
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
@@ -49,14 +59,33 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 ### `apps/api/.env`
 
 ```env
-SUPABASE_URL=https://<project-ref>.supabase.co
-DATABASE_URL=postgresql://postgres.<project-ref>:<password>@aws-1-us-east-1.pooler.supabase.com:6543/postgres
+SUPABASE_URL=https://<your-project-ref>.supabase.co
+DATABASE_URL=postgresql://postgres.<your-project-ref>:<password>@<pooler-host>:6543/postgres
 PAGE_AUDITOR_URL=http://127.0.0.1:3001
+SERP_URL=http://127.0.0.1:3002
+COMPETITOR_ANALYSIS_URL=http://127.0.0.1:3003
 ```
 
 **Database URL:** Supabase Dashboard → **Project Settings** → **Database** → **Connection string** → **Transaction pooler** (port `6543`). On some networks the session pooler (`5432`) may time out; use transaction mode for local dev if needed.
 
-Templates with comments: `apps/web/.env.example` and `apps/api/.env.example`.
+For competitor analysis and brief generation, also add:
+
+```env
+ANTHROPIC_API_KEY=<your-anthropic-api-key>
+# ANTHROPIC_BRIEF_MODEL=claude-haiku-4-5
+# ANTHROPIC_GAP_MODEL=claude-haiku-4-5
+# OPENAI_API_KEY=<optional-fallback-for-gap-analysis>
+```
+
+Templates with comments: [`apps/web/.env.example`](../apps/web/.env.example) and [`apps/api/.env.example`](../apps/api/.env.example).
+
+### `mcp/serp/.env` (competitor analysis)
+
+```env
+SERP_API_KEY=<your-serpapi-key>
+```
+
+Copy from [`mcp/serp/.env.example`](../mcp/serp/.env.example). The SERP API key must be set on the **serp MCP process**, not the FastAPI server.
 
 ## 4. Install dependencies
 
@@ -81,26 +110,39 @@ cd ..\..
 
 On Windows PowerShell, use `npm.cmd` if execution policy blocks `npm.ps1`.
 
-### Page auditor MCP (port 3001, required for audits)
+### MCP services
+
+Install each service you need:
 
 ```powershell
+# Page auditor (required for audits) — port 3001
 cd mcp\page-auditor
 npm install
-npm.cmd start
+
+# SERP (required for competitor analysis) — port 3002
+cd ..\serp
+npm install
+
+# Competitor analysis (required for competitor analysis) — port 3003
+cd ..\competitor-analysis
+npm install
 ```
 
-Health check: [http://127.0.0.1:3001/health](http://127.0.0.1:3001/health) → `{"status":"ok"}`
+Health checks:
 
-Add `PAGE_AUDITOR_URL=http://127.0.0.1:3001` to `apps/api/.env` (see `apps/api/.env.example`).
-
-Apply migrations if not already applied (`supabase db push` or SQL editor):
-
-- `supabase/migrations/0002_audits_fetched_at.sql`
-- `supabase/migrations/0003_audits_report_column.sql` (renames `results` → `report`, enforces `seo_score NOT NULL`)
+- Page auditor: [http://127.0.0.1:3001/health](http://127.0.0.1:3001/health) → `{"status":"ok"}`
+- SERP: [http://127.0.0.1:3002/health](http://127.0.0.1:3002/health) → `{"status":"ok"}`
+- Competitor analysis: [http://127.0.0.1:3003/health](http://127.0.0.1:3003/health) → `{"status":"ok"}`
 
 ## 5. Run the app (normal auth)
 
-You need **three terminals** for full audit functionality (API, web, page-auditor). API and web are required; page-auditor is required to run SEO audits.
+### Minimum setup (dashboard + projects)
+
+You need **two terminals**: API and web.
+
+### Full SEO workflow
+
+For audits, competitor analysis, and brief generation, run additional MCP terminals as needed (see section 4).
 
 ### Terminal 1 — API (port 8000)
 
@@ -127,8 +169,30 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Terminal 3 — Page auditor (port 3001)
 
+Required for running page audits.
+
 ```powershell
 cd mcp\page-auditor
+npm.cmd start
+```
+
+### Terminal 4 — SERP (port 3002)
+
+Required for competitor analysis.
+
+```powershell
+cd mcp\serp
+npm.cmd start
+```
+
+Ensure `SERP_API_KEY` is set in `mcp/serp/.env`.
+
+### Terminal 5 — Competitor analysis (port 3003)
+
+Required for competitor analysis.
+
+```powershell
+cd mcp\competitor-analysis
 npm.cmd start
 ```
 
@@ -200,12 +264,15 @@ Remove or comment out `DEV_AUTH_BYPASS=true` in both `apps/api/.env` and `apps/w
 | Problem | Fix |
 |--------|-----|
 | `uvicorn` not recognized | Use `apps\api\venv\Scripts\python.exe -m uvicorn ...` from repo root |
-| Browser can’t reach localhost | Use **http://localhost:3000** for the UI, not port 8000 |
+| Browser can't reach localhost | Use **http://localhost:3000** for the UI, not port 8000 |
 | Port 3000 not responding | Start `npm.cmd run dev` in `apps/web` and wait for `Ready` |
 | API errors / empty dashboard | Start the API on port 8000; check `/health` |
 | Seed script fails | Ensure full `SUPABASE_SERVICE_ROLE_KEY` is saved in `apps/api/.env` (not a placeholder) |
-| DB connection fails | Use the **Session pooler** URL, not the direct `db.*.supabase.co` host |
+| DB connection fails | Use the **Transaction pooler** URL, not the direct `db.*.supabase.co` host |
 | Changes to `.env` ignored | Restart both servers after editing env files |
+| Audit fails | Ensure page-auditor is running on port 3001 |
+| Competitor analysis stuck | Ensure serp (3002) and competitor-analysis (3003) are running; check `SERP_API_KEY` |
+| Brief generation fails | Ensure `ANTHROPIC_API_KEY` is set in `apps/api/.env` |
 
 ## Quick reference
 
@@ -214,18 +281,37 @@ Remove or comment out `DEV_AUTH_BYPASS=true` in both `apps/api/.env` and `apps/w
 | http://localhost:3000 | Next.js web app |
 | http://localhost:8000/health | FastAPI health check |
 | http://localhost:8000/api/projects | Projects API (requires auth or dev bypass) |
-| http://127.0.0.1:3001/health | Page auditor MCP health |
-| http://127.0.0.1:3001/audit | Page auditor REST endpoint (POST `{ "url": "..." }`) |
+| http://localhost:8000/docs | OpenAPI interactive docs |
+| http://127.0.0.1:3001/health | Page auditor MCP |
+| http://127.0.0.1:3002/health | SERP MCP |
+| http://127.0.0.1:3003/health | Competitor analysis MCP |
+| http://127.0.0.1:3004/health | Content DB MCP |
+| http://127.0.0.1:3005/health | Content brief MCP |
 
-### FR-02 demo: run an audit
+### Run a page audit
 
 1. Open a project → **Audits** tab.
 2. Enter a public URL (e.g. `https://example.com`) and click **Run audit**.
 3. Wait up to ~15s; the list shows the SEO score. Click a row to view the full report.
-4. Re-run after editing a local HTML fixture to confirm the score changes.
+
+### Run competitor analysis
+
+1. Ensure SERP and competitor-analysis MCP servers are running.
+2. Open a project → **Competitors** tab.
+3. Enter a keyword and your page URL, then start the analysis.
+4. Poll until status is complete; view the content gap report.
+
+### Generate a content brief
+
+1. Complete at least one audit and one competitor analysis in the same project.
+2. Open **Briefs** → generate from an audit + competitor analysis pair.
+3. Requires `ANTHROPIC_API_KEY` on the API server.
 
 ## Related docs
 
 - [README.md](../README.md) — project overview
+- [apps/web/README.md](../apps/web/README.md) — frontend guide
+- [apps/api/README.md](../apps/api/README.md) — backend guide
+- [supabase/README.md](../supabase/README.md) — database schema
 - [mcp/README.md](../mcp/README.md) — MCP servers
 - `apps/api/.env.example` / `apps/web/.env.example` — env variable templates

@@ -1,143 +1,140 @@
 # Rankforge
 
-Monorepo for Rankforge — user auth, project workspaces (FR-01), and SEO tooling (FR-02+).
+Rankforge is an AI-assisted **SEO content intelligence platform**. Signed-in users create **project workspaces** and run an end-to-end SEO workflow: page audits, competitor analysis, AI-generated content briefs, drafts, and keyword tracking — all scoped to a single project.
 
-## Structure
+## What it solves
+
+- **Fragmented SEO tooling** — on-page auditing, SERP research, content gap analysis, and brief writing live in one workspace instead of separate tools.
+- **Lost context** — audits, competitor analyses, and briefs are linked per project so developers and content teams can trace how a brief was produced.
+- **Repeatable pipeline** — crawl a page, compare it to SERP competitors, and generate a structured writing brief from the combined data.
+
+## Architecture
+
+| Layer | Location | Responsibility |
+|-------|----------|----------------|
+| Frontend | `apps/web` | Workspace UI, Supabase Auth sessions, API route proxies |
+| Backend | `apps/api` | `/api/projects/*` routes, orchestration, Postgres access |
+| MCP services | `mcp/*` | Page crawl, SERP, competitor extraction, brief tools (ports 3001–3005) |
+| Data | `supabase/` | Postgres schema, RLS, auth integration |
+
+**Request flow:** The browser loads the Next.js app, which authenticates via Supabase and proxies API calls to FastAPI with the user's JWT. FastAPI validates the token, reads and writes Postgres, and calls MCP microservices over HTTP for crawls, SERP, and competitor extraction.
+
+## Key concepts
+
+| Concept | Description |
+|---------|-------------|
+| **Project** | Isolated workspace; all SEO artifacts belong to one project |
+| **Audit** | On-page SEO report for a URL (score + structured report JSON) |
+| **Competitor analysis** | Async job: fetch SERP results, scrape top competitors, compute content gap |
+| **Content gap** | Topics competitors cover that the user's page does not |
+| **Brief** | AI-generated structured content plan, linked to source audit and competitor analysis |
+| **Draft** | Stored editor content, optionally linked to a brief |
+| **Tracked keyword** | Keyword string stored per project for future SERP workflows |
+| **MCP server** | Independently runnable Node tool service (HTTP for FastAPI, stdio for Cursor) |
+
+## Repository structure
 
 ```
 rankforge/
-├── .cursor/
-│   ├── mcp.json              # MCP server config (stdio)
-│   └── skills/               # Supabase agent skills for Cursor
 ├── apps/
 │   ├── web/                  # Next.js 14 frontend
 │   └── api/                  # FastAPI backend
 ├── mcp/
-│   ├── page-auditor/         # audit_page tool (port 3001)
-│   ├── serp/                 # fetch_serp tool (port 3002)
-│   └── content-db/         # save_brief / list_briefs (port 3004)
+│   ├── page-auditor/         # On-page SEO crawl (port 3001)
+│   ├── serp/                 # SerpAPI integration (port 3002)
+│   ├── competitor-analysis/  # Competitor page extraction (port 3003)
+│   ├── content-db/           # Brief persistence tools (port 3004)
+│   └── content-brief/        # Standalone brief generation (port 3005)
 ├── supabase/
 │   ├── config.toml
-│   └── migrations/
-│       └── 0001_initial_schema.sql
-└── .gitignore
+│   └── migrations/           # 0001–0005
+├── instructions/             # Local development guide
+└── .cursor/                  # Cursor MCP config and agent skills
 ```
+
+The legacy root-level `backend/` folder is deprecated; all active code lives under `apps/` and `mcp/`.
 
 ## Prerequisites
 
-- Node.js 18+
-- Python 3.11+
-- [Supabase CLI](https://supabase.com/docs/guides/cli)
-- Supabase project (hosted or local)
+- **Node.js** 18+
+- **Python** 3.11+
+- **[Supabase CLI](https://supabase.com/docs/guides/cli)** (for migrations)
+- A **Supabase** project (hosted or local)
+- Optional: **SerpAPI** key (competitor analysis), **Anthropic** API key (content gap + brief generation)
 
-## Environment variables
+## Environment files
 
-Create these locally — **never commit** them (see `.gitignore`).
+Create these locally from the `.env.example` templates — **never commit** real values.
 
-### `apps/web/.env.local`
+| File | Used by | Template |
+|------|---------|----------|
+| `apps/web/.env.local` | Next.js frontend | [`apps/web/.env.example`](apps/web/.env.example) |
+| `apps/api/.env` | FastAPI backend | [`apps/api/.env.example`](apps/api/.env.example) |
+| `mcp/serp/.env` | SERP MCP server | [`mcp/serp/.env.example`](mcp/serp/.env.example) |
 
-```
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-NEXT_PUBLIC_API_URL=http://localhost:8000
-```
+**Web (`apps/web/.env.local`):** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_API_URL`
 
-### `apps/api/.env`
+**API (`apps/api/.env`):** `SUPABASE_URL`, `DATABASE_URL`, MCP service URLs (`PAGE_AUDITOR_URL`, `SERP_URL`, `COMPETITOR_ANALYSIS_URL`), optional `ANTHROPIC_API_KEY`
 
-```
-SUPABASE_URL=https://<project-ref>.supabase.co
-DATABASE_URL=postgresql://...
-```
+**Local dev only (never production):** `DEV_AUTH_*` bypass variables and `SUPABASE_SERVICE_ROLE_KEY` (for `seed_dev_user.py` only). See [instructions/local-setup.md](instructions/local-setup.md).
 
-`SUPABASE_JWT_SECRET` is **optional** — only needed if your project still uses the legacy HS256 secret. New Supabase projects with **ECC signing keys** verify tokens automatically via JWKS using `SUPABASE_URL`.
+## Quick start
 
-### Local dev auth bypass (optional)
+1. **Apply database schema**
+   ```bash
+   supabase login
+   supabase link --project-ref <your-project-ref>
+   supabase db push
+   ```
 
-Skip the login page during local development:
+2. **Configure environment** — copy `.env.example` files and fill in your Supabase project values.
 
-1. Add `SUPABASE_SERVICE_ROLE_KEY` to `apps/api/.env` (Supabase Dashboard → Project Settings → API).
-2. From the repo root, create the dev user and print env lines:
+3. **Install and run** (from repo root):
+   ```bash
+   # API (port 8000)
+   cd apps/api && python -m venv venv && pip install -r requirements.txt
+   uvicorn apps.api.main:app --reload --port 8000
 
-```bash
-python apps/api/scripts/seed_dev_user.py
-```
+   # Web (port 3000)
+   cd apps/web && npm install && npm run dev
 
-3. Copy the printed `DEV_AUTH_*` variables into **both** `apps/api/.env` and `apps/web/.env.local`.
-4. Restart the API and web dev servers. Visiting `/` or `/login` redirects straight to `/dashboard`.
+   # Page auditor MCP (port 3001) — required for audits
+   cd mcp/page-auditor && npm install && npm start
+   ```
 
-Default dev credentials (if you sign in manually instead): `dev@example.com` / `rankforge-dev-password`.
+4. Open [http://localhost:3000](http://localhost:3000).
 
-**Never set `DEV_AUTH_BYPASS=true` in production.**
-
-See `apps/api/.env.example` and `apps/web/.env.example` for all variables.
-
-## Supabase
-
-```bash
-supabase login
-supabase link --project-ref <project-ref>
-supabase db push
-```
-
-Configure Google OAuth in Supabase Auth and Google Cloud Console (redirect URIs for `/auth/callback`).
-
-## Backend
-
-```bash
-cd apps/api
-python -m venv venv
-# Windows: venv\Scripts\activate
-pip install -r requirements.txt
-# Load apps/api/.env (SUPABASE_JWT_SECRET, DATABASE_URL)
-uvicorn apps.api.main:app --reload --port 8000
-```
-
-Run from the **repository root** so `apps.api` imports resolve.
-
-## Frontend
-
-```bash
-cd apps/web
-npm install
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
+For the full setup guide (dev auth bypass, optional MCP services, troubleshooting), see **[instructions/local-setup.md](instructions/local-setup.md)**.
 
 ## Tests
 
 From the repository root:
 
 ```bash
-cd apps/api
-pip install -r requirements.txt
+cd apps/api && pip install -r requirements.txt
 cd ../..
 pytest apps/api/tests -q
 ```
 
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [instructions/local-setup.md](instructions/local-setup.md) | Detailed local development setup |
+| [apps/web/README.md](apps/web/README.md) | Next.js frontend guide |
+| [apps/api/README.md](apps/api/README.md) | FastAPI backend guide |
+| [supabase/README.md](supabase/README.md) | Database schema and migrations |
+| [mcp/README.md](mcp/README.md) | MCP microservices (ports, tools, Cursor config) |
+| [apps/api/agents/README.md](apps/api/agents/README.md) | Anthropic agent policies for API services |
+
+## MCP servers
+
+Five independent Node microservices expose SEO tools over **HTTP** (used by FastAPI) and **stdio** (used by Cursor). See [mcp/README.md](mcp/README.md) for ports, tools, and configuration.
+
 ## Agent skills (Cursor)
 
-Supabase skills live in [`.cursor/skills/`](.cursor/skills/). To refresh from upstream:
+Supabase skills for Cursor live in [`.cursor/skills/`](.cursor/skills/). To refresh from upstream:
 
 ```bash
 npx skills add supabase/agent-skills
 ```
-
-Then copy from `.agents/skills/` into `.cursor/skills/` if the installer recreates `.agents/`.
-
-## MCP servers
-
-See [mcp/README.md](mcp/README.md) for running page auditor, SERP, and content DB tools via stdio (Cursor) or HTTP (Claude API connector).
-
-## FR-01 acceptance criteria
-
-- [ ] Register / sign in (email + Google OAuth → `/dashboard`)
-- [ ] Create two named projects from the dashboard
-- [ ] Audits scoped per project (API: `POST/GET /api/projects/{id}/audits`)
-- [ ] `/dashboard` without session → `/login`
-- [ ] `GET /api/projects` without token → 403; invalid JWT → 401
-- [ ] `supabase db push` applies `0001_initial_schema.sql` cleanly
-
-## Legacy FR-02 prototype
-
-The previous root-level `backend/` and `frontend/` SEO auditor prototype was replaced by this layout. FR-02 will be integrated under `apps/api` and the project **Audits** tab in a later phase.

@@ -4,30 +4,30 @@ Policy and configuration for **runtime** agents that call the Anthropic API (`an
 
 This is **not** for Cursor IDE rules. Cursor uses `.cursor/rules/` separately.
 
-## Where to put your policy file
+## Policy file
 
-Place your markdown here:
+The active policy document is:
 
 ```
-apps/api/agents/policies/models-and-tokens.md
+apps/api/agents/policies/rankforge-token-cost-guidelines.md
 ```
 
-That file is the **single source of truth** for:
+That file defines:
 
 - Which Claude models to use (and when)
 - `max_tokens`, temperature, and other generation limits
 - Token/cost guardrails
 - What agents must not do
 
-## How agents must follow it (strict)
+## How agents should follow it
 
 Every Anthropic call in this repo should:
 
-1. **Load** `policies/models-and-tokens.md` (or a module that reads it once at startup).
+1. **Load** `policies/rankforge-token-cost-guidelines.md` (or a module that reads it once at startup).
 2. **Prepend** it to the API `system` prompt for every `messages.create` / `AsyncAnthropic` request.
 3. **Read model and token limits** from shared config derived from that policy (not hard-coded per route).
 
-Example pattern (when you implement agents):
+Example pattern (when you implement a shared policy loader):
 
 ```python
 from apps.api.agents.policy import get_agent_system_prompt, get_model_config
@@ -45,15 +45,15 @@ await client.messages.create(
 
 Until `apps/api/agents/policy.py` exists, treat the markdown file as the contract and wire agents to it as you add them.
 
-## Suggested layout
+## Layout
 
 ```
 apps/api/agents/
-  README.md                 ← this file
+  README.md                                    ← this file
   policies/
-    models-and-tokens.md    ← your policy (paste your content here)
-  policy.py                 ← (future) load policy + expose helpers
-  config.py                 ← (future) model IDs, max_tokens per task
+    rankforge-token-cost-guidelines.md         ← active policy
+  policy.py                                    ← (future) load policy + expose helpers
+  config.py                                    ← (future) model IDs, max_tokens per task
 ```
 
 ## Related (different systems)
@@ -69,5 +69,7 @@ apps/api/agents/
 Set in `apps/api/.env` (never commit):
 
 ```
-ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_API_KEY=<your-anthropic-api-key>
 ```
+
+Optional model overrides: `ANTHROPIC_BRIEF_MODEL`, `ANTHROPIC_GAP_MODEL`. See [`apps/api/.env.example`](../.env.example).
