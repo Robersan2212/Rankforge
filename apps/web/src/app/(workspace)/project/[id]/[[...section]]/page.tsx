@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { AuditDetailView } from "@/components/workspace/organisms/audit-detail-view";
 import { BriefDetailView } from "@/components/workspace/organisms/brief-detail-view";
 import { CompetitorDetailView } from "@/components/workspace/organisms/competitor-detail-view";
+import { DraftEditorView } from "@/components/editor/draft-editor-view";
 import { ProjectWorkspaceView } from "@/components/workspace/organisms/project-workspace-view";
 import { fetchFromApi, fetchProject } from "@/lib/api-server";
 import {
@@ -23,6 +24,7 @@ export const dynamic = "force-dynamic";
 
 interface ProjectSectionPageProps {
   params: { id: string; section?: string[] };
+  searchParams?: { briefId?: string };
 }
 
 const EMPTY_PROJECT_STATS: ProjectStats = {
@@ -56,6 +58,7 @@ async function loadProject(projectId: string): Promise<Project> {
 
 export default async function ProjectSectionPage({
   params,
+  searchParams,
 }: ProjectSectionPageProps) {
   const sectionParts = params.section ?? [];
   const sectionParam = sectionParts[0];
@@ -149,6 +152,44 @@ export default async function ProjectSectionPage({
       await Promise.all([projectRes.json(), analysisRes.json()]);
 
     return <CompetitorDetailView project={project} analysis={analysis} />;
+  }
+
+  if (sectionParam === "editor" && sectionParts[1]) {
+    const draftId = sectionParts[1];
+    if (!UUID_RE.test(draftId)) {
+      notFound();
+    }
+
+    const [projectRes, draftRes, briefsRes] = await Promise.all([
+      fetchProject(params.id),
+      fetchFromApi(`/api/projects/${params.id}/drafts/${draftId}`),
+      fetchFromApi(`/api/projects/${params.id}/briefs`),
+    ]);
+
+    if (projectRes.status === 404 || !projectRes.ok) {
+      notFound();
+    }
+    if (draftRes.status === 401) {
+      redirect("/login");
+    }
+    if (draftRes.status === 404 || !draftRes.ok) {
+      notFound();
+    }
+
+    const [project, draft]: [Project, Draft] = await Promise.all([
+      projectRes.json(),
+      draftRes.json(),
+    ]);
+    const briefs: Brief[] = briefsRes.ok ? await briefsRes.json() : [];
+
+    return (
+      <DraftEditorView
+        project={project}
+        draft={draft}
+        briefs={briefs}
+        initialBriefId={searchParams?.briefId ?? draft.brief_id}
+      />
+    );
   }
 
   if (sectionParts.length > 1) {

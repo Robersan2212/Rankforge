@@ -164,9 +164,11 @@ export function BriefGenerationPanel({
           </div>
           <div className="space-y-1 p-3">
             {briefs.map((brief) => {
-              const generated = isGeneratedBriefContent(brief.content);
-              const subtitle = generated
-                ? `${brief.content.target_word_count} words · ${brief.content.semantic_keywords.length} keywords · ${formatDate(brief.created_at)}`
+              const content = isGeneratedBriefContent(brief.content)
+                ? brief.content
+                : null;
+              const subtitle = content
+                ? `${content.target_word_count} words · ${content.semantic_keywords.length} keywords · ${formatDate(brief.created_at)}`
                 : formatDate(brief.created_at);
 
               return (
