@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { ScoreBar } from "@/components/ui/score-bar";
 import type { SeoMetrics } from "@/lib/seo-metrics";
 
 interface SeoSidebarProps {
@@ -27,14 +28,58 @@ function MetricCard({
 
 const HEADING_LABELS = ["H1", "H2", "H3", "H4", "H5", "H6"] as const;
 
+const BREAKDOWN_ROWS = [
+  { key: "keyword", label: "Keyword" },
+  { key: "wordCount", label: "Word count" },
+  { key: "headings", label: "Headings" },
+  { key: "readability", label: "Readability" },
+] as const;
+
 export function SeoSidebar({ metrics, primaryKeyword }: SeoSidebarProps) {
-  const { wordCount, keywords, headings, readability } = metrics;
+  const { wordCount, keywords, headings, readability, seoScore } = metrics;
   const progressValue = wordCount.target
     ? Math.min(100, wordCount.percentOfTarget ?? 0)
     : undefined;
 
   return (
     <aside className="space-y-4">
+      <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+        <div className="flex items-center gap-4">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-muted text-2xl font-semibold tabular-nums">
+            {seoScore.overallScore}
+          </div>
+          <div>
+            <p className="text-sm font-medium">SEO score</p>
+            <p className="text-xs text-muted-foreground">
+              {seoScore.label} · Out of 100
+            </p>
+          </div>
+        </div>
+
+        <section className="space-y-3">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">
+            Score breakdown
+          </p>
+          <div className="space-y-3">
+            {BREAKDOWN_ROWS.map(({ key, label }) => {
+              const item = seoScore.breakdown[key];
+              return (
+                <div key={key} className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="font-medium">{label}</span>
+                    <span className="text-muted-foreground tabular-nums">
+                      {item.score}
+                    </span>
+                  </div>
+                  <ScoreBar score={item.score} />
+                  <p className="text-xs text-muted-foreground">{item.detail}</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+
       <MetricCard title="Keyword usage">
         {primaryKeyword ? (
           <div className="space-y-3">

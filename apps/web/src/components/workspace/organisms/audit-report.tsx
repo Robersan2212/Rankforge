@@ -1,30 +1,5 @@
 import type { AuditReport } from "@/lib/types";
-
-function isAuditReport(results: unknown): results is AuditReport {
-  return (
-    typeof results === "object" &&
-    results !== null &&
-    "seo_score" in results &&
-    "score_breakdown" in results
-  );
-}
-
-function ScoreBar({ score, max }: { score: number; max: number }) {
-  const pct = max > 0 ? Math.round((score / max) * 100) : 0;
-  return (
-    <div className="flex items-center gap-2">
-      <div className="h-2 flex-1 rounded-full bg-muted overflow-hidden">
-        <div
-          className="h-full rounded-full bg-primary transition-all"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span className="text-xs text-muted-foreground tabular-nums w-12 text-right">
-        {score}/{max}
-      </span>
-    </div>
-  );
-}
+import { ScoreBar } from "@/components/ui/score-bar";
 
 interface AuditReportViewProps {
   report: AuditReport;
@@ -154,6 +129,15 @@ export function AuditReportView({ report }: AuditReportViewProps) {
         </section>
       )}
     </div>
+  );
+}
+
+function isAuditReport(results: unknown): results is AuditReport {
+  return (
+    typeof results === "object" &&
+    results !== null &&
+    "seo_score" in results &&
+    "score_breakdown" in results
   );
 }
 
