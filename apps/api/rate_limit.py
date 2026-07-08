@@ -10,10 +10,14 @@ _BRIEF_WINDOW_SECONDS = 3600
 _BRIEF_MAX_REQUESTS = 5
 _COMPETITOR_WINDOW_SECONDS = 3600
 _COMPETITOR_MAX_REQUESTS = 5
+_DRAFT_WINDOW_SECONDS = 3600
+_DRAFT_MAX_REQUESTS = 5
 
 _buckets: dict[str, list[float]] = defaultdict(list)
 _brief_buckets: dict[str, list[float]] = defaultdict(list)
 _competitor_buckets: dict[str, list[float]] = defaultdict(list)
+_draft_buckets: dict[str, list[float]] = defaultdict(list)
+_active_generations: set[tuple[str, str]] = set()
 _lock = Lock()
 
 
@@ -75,9 +79,51 @@ def check_competitor_rate_limit(
         _competitor_buckets[user_id].append(now)
 
 
+def check_draft_rate_limit(
+    user_id: str,
+    *,
+    max_requests: int = _DRAFT_MAX_REQUESTS,
+    window_seconds: int = _DRAFT_WINDOW_SECONDS,
+) -> None:
+    """Sliding-window rate limit for draft generation (5 per hour)."""
+    now = time.monotonic()
+    cutoff = now - window_seconds
+
+    with _lock:
+        timestamps = _draft_buckets[user_id]
+        _draft_buckets[user_id] = [t for t in timestamps if t > cutoff]
+        if len(_draft_buckets[user_id]) >= max_requests:
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "Draft generation rate limit exceeded "
+                    "(5 per hour). Try again shortly."
+                ),
+            )
+        _draft_buckets[user_id].append(now)
+
+
+def try_acquire_generation_lock(user_id: str, brief_id: str) -> bool:
+    """Return False if the same user+brief generation is already in flight."""
+    key = (user_id, brief_id)
+    with _lock:
+        if key in _active_generations:
+            return False
+        _active_generations.add(key)
+        return True
+
+
+def release_generation_lock(user_id: str, brief_id: str) -> None:
+    key = (user_id, brief_id)
+    with _lock:
+        _active_generations.discard(key)
+
+
 def reset_rate_limits_for_tests() -> None:
     """Clear in-memory buckets (test helper only)."""
     with _lock:
         _buckets.clear()
         _brief_buckets.clear()
         _competitor_buckets.clear()
+        _draft_buckets.clear()
+        _active_generations.clear()

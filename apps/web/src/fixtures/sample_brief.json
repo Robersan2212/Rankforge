@@ -1,0 +1,44 @@
+{
+  "primary_keyword": "best running shoes",
+  "target_word_count": 800,
+  "recommended_structure": [
+    {
+      "section_title": "Introduction",
+      "purpose": "Hook the reader and introduce the topic of choosing running shoes."
+    },
+    {
+      "section_title": "What to Look For",
+      "purpose": "Cover fit, cushioning, and terrain considerations."
+    },
+    {
+      "section_title": "Top Picks by Category",
+      "purpose": "Recommend shoes for road, trail, and marathon training."
+    },
+    {
+      "section_title": "FAQ",
+      "purpose": "Answer common buyer questions."
+    }
+  ],
+  "semantic_keywords": [
+    "trail running",
+    "marathon training",
+    "running shoes",
+    "cushioned running shoes",
+    "neutral running shoes"
+  ],
+  "suggested_headings": [
+    "Introduction",
+    "What to Look For in Running Shoes",
+    "Top Picks by Category",
+    "How to Choose the Right Fit",
+    "Frequently Asked Questions"
+  ],
+  "faq_questions": [
+    "How often should I replace running shoes?",
+    "What is the difference between neutral and stability shoes?",
+    "Can I use trail shoes on pavement?"
+  ],
+  "source_audit_id": "00000000-0000-4000-8000-000000000001",
+  "source_competitor_analysis_id": "00000000-0000-4000-8000-000000000002",
+  "generated_at": "2026-07-07T00:00:00+00:00"
+}

@@ -5,7 +5,7 @@ load_env_file()
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from apps.api.routers import projects
+from apps.api.routers import drafts, projects
 
 app = FastAPI(title="Rankforge API", version="0.1.0")
 
@@ -18,6 +18,7 @@ app.add_middleware(
 )
 
 app.include_router(projects.router)
+app.include_router(drafts.router)
 
 
 @app.get("/health")

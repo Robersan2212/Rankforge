@@ -1,7 +1,8 @@
-"""Seed project, brief, and draft fixtures for manual requirement testing (FR-05).
+"""Seed project, brief, and draft fixtures for manual requirement testing (FR-05 / FR-06).
 
 Creates or updates a dedicated workspace with a generated-style brief so the
-editor sidebar can be exercised without running the full audit/brief pipeline.
+editor sidebar and full draft generation can be exercised without running the
+full audit/brief pipeline.
 
 Run from repo root:
   apps\\api\\venv\\Scripts\\python.exe apps/api/scripts/seed_requirement_test_data.py
@@ -15,15 +16,23 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
 from apps.api.env import load_env_file
 
-PROJECT_NAME = "FR-05 Requirement Testing"
+PROJECT_NAME = "FR-05 / FR-06 Requirement Testing"
 PROJECT_SLUG = "fr-05-requirement-testing"
 BRIEF_KEYWORD = "best running shoes"
 PRIMARY_KEYWORD = "best running shoes"
-TARGET_WORD_COUNT = 300
-SEMANTIC_KEYWORDS = ["trail running", "marathon training", "running shoes"]
-DRAFT_TITLE = "FR-05 acceptance draft"
+TARGET_WORD_COUNT = 800
+SEMANTIC_KEYWORDS = [
+    "trail running",
+    "marathon training",
+    "running shoes",
+    "cushioned running shoes",
+    "neutral running shoes",
+]
+DRAFT_TITLE = "FR-05 / FR-06 acceptance draft"
 
 
 def _load_web_env() -> None:
@@ -54,8 +63,18 @@ def _brief_payload() -> dict:
             },
         ],
         "semantic_keywords": SEMANTIC_KEYWORDS,
-        "suggested_headings": ["What to look for", "Top picks"],
-        "faq_questions": ["How often should I replace running shoes?"],
+        "suggested_headings": [
+            "Introduction",
+            "What to Look For in Running Shoes",
+            "Top Picks by Category",
+            "How to Choose the Right Fit",
+            "Frequently Asked Questions",
+        ],
+        "faq_questions": [
+            "How often should I replace running shoes?",
+            "What is the difference between neutral and stability shoes?",
+            "Can I use trail shoes on pavement?",
+        ],
         "source_audit_id": "00000000-0000-4000-8000-000000000001",
         "source_competitor_analysis_id": "00000000-0000-4000-8000-000000000002",
         "generated_at": now,
@@ -208,12 +227,18 @@ async def main() -> int:
         print(f"  Target word count: {TARGET_WORD_COUNT}")
         print(f"  Semantic keywords: {', '.join(SEMANTIC_KEYWORDS)}")
         print()
-        print("Manual checks:")
+        print("FR-06 manual checks:")
         print("  1. Open the draft URL above")
         print("  2. Confirm the brief is linked in the editor")
-        print("  3. Type a 300-word passage containing the primary keyword")
-        print("  4. Verify all four sidebar metrics update without refresh")
-        print("  5. Add a second heading and confirm heading validation updates")
+        print("  3. Click Generate Full Draft and confirm first token < 5s")
+        print("  4. Watch incremental streaming into the editor")
+        print("  5. Confirm final word count >= 600 and headings match the brief")
+        print("  6. Refresh and confirm the draft persisted")
+        print()
+        print("FR-05 manual checks:")
+        print("  1. Type a passage containing the primary keyword")
+        print("  2. Verify all four sidebar metrics update without refresh")
+        print("  3. Add a second heading and confirm heading validation updates")
         return 0
     finally:
         await conn.close()
