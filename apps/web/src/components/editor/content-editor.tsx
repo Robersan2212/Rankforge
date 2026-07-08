@@ -10,6 +10,7 @@ import {
   forwardRef,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
 } from "react";
 import {
@@ -50,12 +51,12 @@ interface ContentEditorProps {
 }
 
 function ToolbarButton({
-  onClick,
+  onPress,
   active,
   children,
   title,
 }: {
-  onClick: () => void;
+  onPress: () => void;
   active?: boolean;
   children: React.ReactNode;
   title: string;
@@ -65,9 +66,13 @@ function ToolbarButton({
       type="button"
       variant={active ? "secondary" : "ghost"}
       size="icon-sm"
-      onClick={onClick}
+      onMouseDown={(event) => {
+        event.preventDefault();
+        onPress();
+      }}
       title={title}
       aria-label={title}
+      aria-pressed={active}
     >
       {children}
     </Button>
@@ -77,30 +82,39 @@ function ToolbarButton({
 export const ContentEditor = forwardRef<ContentEditorHandle, ContentEditorProps>(
   function ContentEditor({ initialContent, onUpdate, className }, ref) {
     const streamBufferRef = useRef(new StreamingMarkdownBuffer());
+    const onUpdateRef = useRef(onUpdate);
+    onUpdateRef.current = onUpdate;
 
-    const parsed = parseStoredContent(initialContent);
-    const initialJson =
-      parsed.type === "json" && parsed.json
+    const extensions = useMemo(() => [StarterKit], []);
+
+    const initialJson = useMemo(() => {
+      const parsed = parseStoredContent(initialContent);
+      return parsed.type === "json" && parsed.json
         ? parsed.json
         : plainTextToDoc(parsed.plainText ?? "");
+    }, [initialContent]);
 
-    const editor = useEditor({
-      extensions: [StarterKit],
-      content: initialJson,
-      immediatelyRender: false,
-      editorProps: {
-        attributes: {
-          class:
-            "prose prose-sm dark:prose-invert max-w-none min-h-[320px] px-4 py-3 focus:outline-none",
+    const editor = useEditor(
+      {
+        extensions,
+        content: initialJson,
+        immediatelyRender: false,
+        shouldRerenderOnTransaction: true,
+        editorProps: {
+          attributes: {
+            class:
+              "min-h-[320px] px-4 py-3 focus:outline-none",
+          },
+        },
+        onUpdate: ({ editor: ed }) => {
+          onUpdateRef.current({
+            json: ed.getJSON(),
+            text: ed.getText(),
+          });
         },
       },
-      onUpdate: ({ editor: ed }) => {
-        onUpdate({
-          json: ed.getJSON(),
-          text: ed.getText(),
-        });
-      },
-    });
+      [initialContent]
+    );
 
     useImperativeHandle(
       ref,
@@ -109,13 +123,13 @@ export const ContentEditor = forwardRef<ContentEditorHandle, ContentEditorProps>
           if (!editor) return;
           streamBufferRef.current.reset();
           editor.commands.setContent(emptyDoc());
-          onUpdate({ json: emptyDoc(), text: "" });
+          onUpdateRef.current({ json: emptyDoc(), text: "" });
         },
         insertStreamingChunk: (text: string) => {
           if (!editor) return;
           streamBufferRef.current.append(text);
           streamBufferRef.current.flush(editor);
-          onUpdate({
+          onUpdateRef.current({
             json: editor.getJSON(),
             text: editor.getText(),
           });
@@ -123,22 +137,22 @@ export const ContentEditor = forwardRef<ContentEditorHandle, ContentEditorProps>
         flushStreamingBuffer: () => {
           if (!editor) return;
           streamBufferRef.current.flushRemaining(editor);
-          onUpdate({
+          onUpdateRef.current({
             json: editor.getJSON(),
             text: editor.getText(),
           });
         },
       }),
-      [editor, onUpdate]
+      [editor]
     );
 
     useEffect(() => {
       if (!editor) return;
-      onUpdate({
+      onUpdateRef.current({
         json: editor.getJSON(),
         text: editor.getText(),
       });
-    }, [editor, onUpdate]);
+    }, [editor]);
 
     if (!editor) {
       return (
@@ -152,21 +166,21 @@ export const ContentEditor = forwardRef<ContentEditorHandle, ContentEditorProps>
       <div className={cn("rounded-2xl border border-border bg-card", className)}>
         <div className="flex flex-wrap items-center gap-1 border-b border-border px-2 py-2">
           <ToolbarButton
-            onClick={() => editor.chain().focus().toggleBold().run()}
+            onPress={() => editor.chain().focus().toggleBold().run()}
             active={editor.isActive("bold")}
             title="Bold"
           >
             <Bold className="size-4" />
           </ToolbarButton>
           <ToolbarButton
-            onClick={() => editor.chain().focus().toggleItalic().run()}
+            onPress={() => editor.chain().focus().toggleItalic().run()}
             active={editor.isActive("italic")}
             title="Italic"
           >
             <Italic className="size-4" />
           </ToolbarButton>
           <ToolbarButton
-            onClick={() =>
+            onPress={() =>
               editor.chain().focus().toggleHeading({ level: 1 }).run()
             }
             active={editor.isActive("heading", { level: 1 })}
@@ -175,7 +189,7 @@ export const ContentEditor = forwardRef<ContentEditorHandle, ContentEditorProps>
             <Heading1 className="size-4" />
           </ToolbarButton>
           <ToolbarButton
-            onClick={() =>
+            onPress={() =>
               editor.chain().focus().toggleHeading({ level: 2 }).run()
             }
             active={editor.isActive("heading", { level: 2 })}
@@ -184,7 +198,7 @@ export const ContentEditor = forwardRef<ContentEditorHandle, ContentEditorProps>
             <Heading2 className="size-4" />
           </ToolbarButton>
           <ToolbarButton
-            onClick={() =>
+            onPress={() =>
               editor.chain().focus().toggleHeading({ level: 3 }).run()
             }
             active={editor.isActive("heading", { level: 3 })}
@@ -193,21 +207,21 @@ export const ContentEditor = forwardRef<ContentEditorHandle, ContentEditorProps>
             <Heading3 className="size-4" />
           </ToolbarButton>
           <ToolbarButton
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            onPress={() => editor.chain().focus().toggleBulletList().run()}
             active={editor.isActive("bulletList")}
             title="Bullet list"
           >
             <List className="size-4" />
           </ToolbarButton>
           <ToolbarButton
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            onPress={() => editor.chain().focus().toggleOrderedList().run()}
             active={editor.isActive("orderedList")}
             title="Ordered list"
           >
             <ListOrdered className="size-4" />
           </ToolbarButton>
         </div>
-        <EditorContent editor={editor} />
+        <EditorContent editor={editor} className="editor-surface" />
       </div>
     );
   }
