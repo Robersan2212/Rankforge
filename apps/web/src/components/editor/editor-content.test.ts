@@ -25,4 +25,19 @@ describe("editor-content helpers", () => {
     expect(doc.type).toBe("doc");
     expect(doc.content).toHaveLength(2);
   });
+
+  it("converts markdown headings in plain text to heading nodes", () => {
+    const doc = plainTextToDoc("## Industries We Serve\nBody copy here.");
+    expect(doc.content).toEqual([
+      {
+        type: "heading",
+        attrs: { level: 2 },
+        content: [{ type: "text", text: "Industries We Serve" }],
+      },
+      {
+        type: "paragraph",
+        content: [{ type: "text", text: "Body copy here." }],
+      },
+    ]);
+  });
 });

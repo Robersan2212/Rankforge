@@ -16,6 +16,11 @@ export interface HeadingValidationResult {
   isValid: boolean;
 }
 
+export interface HeadingEntry {
+  level: 1 | 2 | 3 | 4 | 5 | 6;
+  text: string;
+}
+
 const HEADING_LEVELS: HeadingLevel[] = [
   "h1",
   "h2",
@@ -38,6 +43,22 @@ function levelToHeadingKey(level: number): HeadingLevel | null {
     return `h${level}` as HeadingLevel;
   }
   return null;
+}
+
+function extractTextFromNode(node: unknown): string {
+  if (!node || typeof node !== "object") return "";
+
+  const record = node as Record<string, unknown>;
+  if (record.type === "text" && typeof record.text === "string") {
+    return record.text;
+  }
+
+  const content = record.content;
+  if (Array.isArray(content)) {
+    return content.map(extractTextFromNode).join("");
+  }
+
+  return "";
 }
 
 function walkNodes(node: unknown, counts: HeadingCounts): void {
@@ -93,6 +114,43 @@ function buildWarnings(counts: HeadingCounts): string[] {
   }
 
   return warnings;
+}
+
+function walkHeadings(node: unknown, entries: HeadingEntry[]): void {
+  if (!node || typeof node !== "object") return;
+
+  const record = node as Record<string, unknown>;
+  const type = record.type;
+
+  if (type === "heading") {
+    const attrs = record.attrs as Record<string, unknown> | undefined;
+    const level = typeof attrs?.level === "number" ? attrs.level : null;
+    if (level !== null && level >= 1 && level <= 6) {
+      entries.push({
+        level: level as HeadingEntry["level"],
+        text: extractTextFromNode(node),
+      });
+    }
+  } else if (typeof type === "string" && isHeadingLevel(type)) {
+    const level = Number.parseInt(type.slice(1), 10) as HeadingEntry["level"];
+    entries.push({ level, text: extractTextFromNode(node) });
+  }
+
+  const content = record.content;
+  if (Array.isArray(content)) {
+    for (const child of content) {
+      walkHeadings(child, entries);
+    }
+  }
+}
+
+export function extractHeadings(docJson: unknown): HeadingEntry[] {
+  const entries: HeadingEntry[] = [];
+  if (!docJson || typeof docJson !== "object") {
+    return entries;
+  }
+  walkHeadings(docJson, entries);
+  return entries;
 }
 
 export function validateHeadings(docJson: unknown): HeadingValidationResult {

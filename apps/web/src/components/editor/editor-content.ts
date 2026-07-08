@@ -1,5 +1,7 @@
 import type { JSONContent } from "@tiptap/react";
 
+const MARKDOWN_HEADING_RE = /^(#{1,6})\s+(.+)$/;
+
 export function serializeEditorContent(json: JSONContent): string {
   return JSON.stringify(json);
 }
@@ -31,17 +33,32 @@ export function parseStoredContent(raw: string | null | undefined): ParsedEditor
 }
 
 export function plainTextToDoc(text: string): JSONContent {
-  const paragraphs = text.split(/\n\n+/).filter((block) => block.length > 0);
+  const lines = text.split(/\n/).map((line) => line.trim());
 
-  if (paragraphs.length === 0) {
+  const content: JSONContent[] = [];
+  for (const line of lines) {
+    if (!line) continue;
+
+    const headingMatch = line.match(MARKDOWN_HEADING_RE);
+    if (headingMatch) {
+      const level = Math.min(6, headingMatch[1].length);
+      content.push({
+        type: "heading",
+        attrs: { level },
+        content: [{ type: "text", text: headingMatch[2].trim() }],
+      });
+      continue;
+    }
+
+    content.push({
+      type: "paragraph",
+      content: [{ type: "text", text: line }],
+    });
+  }
+
+  if (content.length === 0) {
     return { type: "doc", content: [{ type: "paragraph" }] };
   }
 
-  return {
-    type: "doc",
-    content: paragraphs.map((block) => ({
-      type: "paragraph",
-      content: block ? [{ type: "text", text: block }] : undefined,
-    })),
-  };
+  return { type: "doc", content };
 }

@@ -35,12 +35,23 @@ export interface Brief {
   created_at: string;
 }
 
+export type DraftStatus =
+  | "manual"
+  | "generating"
+  | "completed"
+  | "partial"
+  | "failed";
+
 export interface Draft {
   id: string;
   project_id: string;
   brief_id: string | null;
   title: string | null;
   content: string | null;
+  status?: DraftStatus | null;
+  generation_model?: string | null;
+  word_count?: number | null;
+  generated_at?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -12,6 +12,7 @@ interface UseDraftAutosaveOptions {
   briefId: string | null;
   debounceMs?: number;
   minIntervalMs?: number;
+  enabled?: boolean;
 }
 
 interface UseDraftAutosaveResult {
@@ -27,6 +28,7 @@ export function useDraftAutosave({
   briefId,
   debounceMs = 2000,
   minIntervalMs = 5000,
+  enabled = true,
 }: UseDraftAutosaveOptions): UseDraftAutosaveResult {
   const [saveStatus, setSaveStatus] = useState<AutosaveStatus>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
@@ -37,6 +39,10 @@ export function useDraftAutosave({
   const isFirstRenderRef = useRef(true);
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     const payload = JSON.stringify({ title, content, briefId });
 
     if (isFirstRenderRef.current) {
@@ -108,6 +114,7 @@ export function useDraftAutosave({
     briefId,
     debounceMs,
     minIntervalMs,
+    enabled,
   ]);
 
   return { saveStatus, lastSavedAt };
