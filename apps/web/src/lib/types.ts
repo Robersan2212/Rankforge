@@ -60,7 +60,25 @@ export interface TrackedKeyword {
   id: string;
   project_id: string;
   keyword: string;
+  target_url?: string | null;
+  is_active?: boolean;
   created_at: string;
+  latest_position?: number | null;
+  latest_checked_at?: string | null;
+  latest_source?: "scheduled" | "manual" | null;
+}
+
+export interface KeywordRanking {
+  id: string;
+  tracked_keyword_id: string;
+  position: number | null;
+  checked_at: string;
+  source: "scheduled" | "manual";
+}
+
+export interface KeywordRankingHistory {
+  keyword: TrackedKeyword;
+  history: KeywordRanking[];
 }
 
 export interface ScoreCategory {

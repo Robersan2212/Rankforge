@@ -62,7 +62,8 @@ export const SECTION_CONFIG: Record<
     label: "Keywords",
     icon: Tags,
     singular: "keyword",
-    description: "Tracked keywords stored per project.",
+    description:
+      "Track target keywords and plot weekly Google ranking history.",
   },
 };
 

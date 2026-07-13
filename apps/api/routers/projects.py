@@ -14,11 +14,13 @@ from apps.api.env import load_env_file
 from apps.api.rate_limit import (
     check_brief_rate_limit,
     check_competitor_rate_limit,
+    check_keyword_refresh_rate_limit,
     check_rate_limit,
 )
 from apps.api.services.brief_errors import BriefGenerationError
 from apps.api.services.brief_pipeline import generate_and_persist_brief
 from apps.api.services.competitor_pipeline import run_competitor_analysis
+from apps.api.services.keyword_rankings import check_and_persist_ranking
 from apps.api.services.page_auditor import run_audit
 
 load_env_file()
@@ -60,8 +62,13 @@ class DraftUpdate(BaseModel):
 MAX_DRAFT_CONTENT_LENGTH = 500_000
 
 
+MAX_KEYWORDS_PER_PROJECT = 25
+MAX_KEYWORD_LENGTH = 200
+
+
 class KeywordCreate(BaseModel):
-    keyword: str = Field(min_length=1)
+    keyword: str = Field(min_length=1, max_length=MAX_KEYWORD_LENGTH)
+    target_url: str | None = Field(default=None, max_length=2048)
 
 
 class CompetitorAnalysisCreate(BaseModel):
@@ -632,6 +639,21 @@ async def update_project_draft(
     return _row_to_dict(row)
 
 
+def _normalize_keyword(value: str) -> str:
+    return " ".join(value.strip().split())
+
+
+def _keyword_row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
+    data = _row_to_dict(row)
+    if "latest_position" in data and data["latest_position"] is not None:
+        data["latest_position"] = int(data["latest_position"])
+    if "latest_checked_at" in data and data["latest_checked_at"] is not None:
+        checked = data["latest_checked_at"]
+        if isinstance(checked, datetime):
+            data["latest_checked_at"] = checked.isoformat()
+    return data
+
+
 @router.get("/{project_id}/keywords")
 async def list_project_keywords(
     project_id: str,
@@ -639,12 +661,37 @@ async def list_project_keywords(
     db=Depends(get_db),
 ):
     await _require_owned_project(db, project_id, current_user["id"])
-    rows = await db.fetch(
-        """SELECT * FROM public.tracked_keywords
-           WHERE project_id = $1 ORDER BY created_at DESC""",
-        project_id,
-    )
-    return [_row_to_dict(r) for r in rows]
+    try:
+        rows = await db.fetch(
+            """SELECT tk.*,
+                      lr.position AS latest_position,
+                      lr.checked_at AS latest_checked_at,
+                      lr.source AS latest_source
+               FROM public.tracked_keywords tk
+               LEFT JOIN LATERAL (
+                 SELECT position, checked_at, source
+                 FROM public.keyword_rankings
+                 WHERE tracked_keyword_id = tk.id
+                 ORDER BY checked_at DESC
+                 LIMIT 1
+               ) lr ON true
+               WHERE tk.project_id = $1 AND tk.is_active = true
+               ORDER BY tk.created_at DESC""",
+            project_id,
+        )
+    except asyncpg.UndefinedTableError:
+        rows = await db.fetch(
+            """SELECT * FROM public.tracked_keywords
+               WHERE project_id = $1 ORDER BY created_at DESC""",
+            project_id,
+        )
+    except asyncpg.UndefinedColumnError:
+        rows = await db.fetch(
+            """SELECT * FROM public.tracked_keywords
+               WHERE project_id = $1 ORDER BY created_at DESC""",
+            project_id,
+        )
+    return [_keyword_row_to_dict(r) for r in rows]
 
 
 @router.post("/{project_id}/keywords", status_code=201)
@@ -655,13 +702,173 @@ async def create_project_keyword(
     db=Depends(get_db),
 ):
     await _require_owned_project(db, project_id, current_user["id"])
-    row = await db.fetchrow(
-        """INSERT INTO public.tracked_keywords (project_id, keyword)
-           VALUES ($1, $2) RETURNING *""",
+    keyword = _normalize_keyword(body.keyword)
+    if not keyword:
+        raise HTTPException(status_code=422, detail="Keyword is required")
+
+    target_url = (body.target_url or "").strip() or None
+
+    try:
+        active_count = await db.fetchval(
+            """SELECT COUNT(*) FROM public.tracked_keywords
+               WHERE project_id = $1 AND is_active = true""",
+            project_id,
+        )
+    except asyncpg.UndefinedColumnError:
+        active_count = await db.fetchval(
+            """SELECT COUNT(*) FROM public.tracked_keywords
+               WHERE project_id = $1""",
+            project_id,
+        )
+
+    if active_count is not None and int(active_count) >= MAX_KEYWORDS_PER_PROJECT:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Project keyword limit reached "
+                f"({MAX_KEYWORDS_PER_PROJECT} max)."
+            ),
+        )
+
+    try:
+        row = await db.fetchrow(
+            """INSERT INTO public.tracked_keywords
+               (project_id, keyword, target_url, is_active)
+               VALUES ($1, $2, $3, true)
+               RETURNING *""",
+            project_id,
+            keyword,
+            target_url,
+        )
+    except asyncpg.UniqueViolationError:
+        raise HTTPException(
+            status_code=409,
+            detail="That keyword is already tracked for this project",
+        )
+    except asyncpg.UndefinedColumnError:
+        row = await db.fetchrow(
+            """INSERT INTO public.tracked_keywords (project_id, keyword)
+               VALUES ($1, $2) RETURNING *""",
+            project_id,
+            keyword,
+        )
+
+    data = _keyword_row_to_dict(row)
+    data.setdefault("latest_position", None)
+    data.setdefault("latest_checked_at", None)
+    data.setdefault("latest_source", None)
+    return data
+
+
+@router.delete("/{project_id}/keywords/{keyword_id}", status_code=204)
+async def delete_project_keyword(
+    project_id: str,
+    keyword_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    try:
+        result = await db.execute(
+            """UPDATE public.tracked_keywords
+               SET is_active = false
+               WHERE id = $1 AND project_id = $2 AND is_active = true""",
+            keyword_id,
+            project_id,
+        )
+    except asyncpg.UndefinedColumnError:
+        result = await db.execute(
+            """DELETE FROM public.tracked_keywords
+               WHERE id = $1 AND project_id = $2""",
+            keyword_id,
+            project_id,
+        )
+
+    if result == "UPDATE 0" or result == "DELETE 0":
+        raise HTTPException(status_code=404, detail="Keyword not found")
+    return None
+
+
+@router.get("/{project_id}/keywords/{keyword_id}/history")
+async def get_keyword_ranking_history(
+    project_id: str,
+    keyword_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    try:
+        keyword = await db.fetchrow(
+            """SELECT id, keyword, target_url, created_at, is_active
+               FROM public.tracked_keywords
+               WHERE id = $1 AND project_id = $2""",
+            keyword_id,
+            project_id,
+        )
+    except asyncpg.UndefinedColumnError:
+        keyword = await db.fetchrow(
+            """SELECT * FROM public.tracked_keywords
+               WHERE id = $1 AND project_id = $2""",
+            keyword_id,
+            project_id,
+        )
+    if keyword is None:
+        raise HTTPException(status_code=404, detail="Keyword not found")
+
+    try:
+        rows = await db.fetch(
+            """SELECT id, tracked_keyword_id, position, checked_at, source
+               FROM public.keyword_rankings
+               WHERE tracked_keyword_id = $1
+               ORDER BY checked_at ASC""",
+            keyword_id,
+        )
+    except asyncpg.UndefinedTableError:
+        rows = []
+
+    return {
+        "keyword": _keyword_row_to_dict(keyword),
+        "history": [_row_to_dict(r) for r in rows],
+    }
+
+
+@router.post("/{project_id}/keywords/{keyword_id}/refresh")
+async def refresh_keyword_ranking(
+    project_id: str,
+    keyword_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    check_keyword_refresh_rate_limit(keyword_id)
+
+    keyword = await db.fetchrow(
+        """SELECT id, keyword, target_url, is_active
+           FROM public.tracked_keywords
+           WHERE id = $1 AND project_id = $2 AND is_active = true""",
+        keyword_id,
         project_id,
-        body.keyword,
     )
-    return _row_to_dict(row)
+    if keyword is None:
+        raise HTTPException(status_code=404, detail="Keyword not found")
+
+    ranking = await check_and_persist_ranking(
+        db,
+        tracked_keyword_id=str(keyword["id"]),
+        keyword=keyword["keyword"],
+        target_url=keyword["target_url"],
+        source="manual",
+    )
+    if ranking is None:
+        raise HTTPException(
+            status_code=502,
+            detail="SERP lookup failed. No ranking was recorded. Try again later.",
+        )
+
+    return {
+        "keyword": _keyword_row_to_dict(keyword),
+        "ranking": _row_to_dict(ranking),
+    }
 
 
 @router.get("/{project_id}/competitor-analyses")
