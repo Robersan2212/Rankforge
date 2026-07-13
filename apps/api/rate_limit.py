@@ -12,11 +12,14 @@ _COMPETITOR_WINDOW_SECONDS = 3600
 _COMPETITOR_MAX_REQUESTS = 5
 _DRAFT_WINDOW_SECONDS = 3600
 _DRAFT_MAX_REQUESTS = 5
+_KEYWORD_REFRESH_WINDOW_SECONDS = 300  # 5 minutes per keyword
+_KEYWORD_REFRESH_MAX_REQUESTS = 1
 
 _buckets: dict[str, list[float]] = defaultdict(list)
 _brief_buckets: dict[str, list[float]] = defaultdict(list)
 _competitor_buckets: dict[str, list[float]] = defaultdict(list)
 _draft_buckets: dict[str, list[float]] = defaultdict(list)
+_keyword_refresh_buckets: dict[str, list[float]] = defaultdict(list)
 _active_generations: set[tuple[str, str]] = set()
 _lock = Lock()
 
@@ -103,6 +106,25 @@ def check_draft_rate_limit(
         _draft_buckets[user_id].append(now)
 
 
+def check_keyword_refresh_rate_limit(keyword_id: str) -> None:
+    """Debounce manual ranking refresh (at most once per 5 minutes per keyword)."""
+    now = time.monotonic()
+    cutoff = now - _KEYWORD_REFRESH_WINDOW_SECONDS
+
+    with _lock:
+        timestamps = _keyword_refresh_buckets[keyword_id]
+        _keyword_refresh_buckets[keyword_id] = [t for t in timestamps if t > cutoff]
+        if len(_keyword_refresh_buckets[keyword_id]) >= _KEYWORD_REFRESH_MAX_REQUESTS:
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "Keyword refresh rate limit exceeded "
+                    "(once per 5 minutes). Try again shortly."
+                ),
+            )
+        _keyword_refresh_buckets[keyword_id].append(now)
+
+
 def try_acquire_generation_lock(user_id: str, brief_id: str) -> bool:
     """Return False if the same user+brief generation is already in flight."""
     key = (user_id, brief_id)
@@ -126,4 +148,5 @@ def reset_rate_limits_for_tests() -> None:
         _brief_buckets.clear()
         _competitor_buckets.clear()
         _draft_buckets.clear()
+        _keyword_refresh_buckets.clear()
         _active_generations.clear()

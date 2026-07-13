@@ -19,6 +19,8 @@ Migrations live in [`migrations/`](migrations/) and are applied in numeric order
 | `0003_audits_report_column.sql` | Renames `results` → `report`; enforces `seo_score NOT NULL` |
 | `0004_competitor_analyses.sql` | `competitor_analyses` table, `scraped_pages` URL cache |
 | `0005_brief_generation.sql` | Brief traceability columns (`source_audit_id`, `source_competitor_analysis_id`, `status`) |
+| `0006_draft_generation.sql` | Draft generation fields (`status`, `generation_model`, `word_count`, `generated_at`) |
+| `0007_keyword_rankings.sql` | Keyword tracker: `target_url`/`is_active` on `tracked_keywords`, `keyword_rankings` history |
 
 ## Tables
 
@@ -29,7 +31,8 @@ Migrations live in [`migrations/`](migrations/) and are applied in numeric order
 | `audits` | On-page SEO reports (`url`, `report` jsonb, `seo_score`, `fetched_at`) |
 | `briefs` | Content briefs (`keyword`, `content` jsonb, source traceability, `status`) |
 | `drafts` | Editor content (`title`, `content`, optional `brief_id`) |
-| `tracked_keywords` | Keywords tracked per project |
+| `tracked_keywords` | Keywords tracked per project (`target_url`, `is_active`) |
+| `keyword_rankings` | Append-only ranking history (`position`, `checked_at`, `source`) |
 | `competitor_analyses` | Async competitor jobs (`keyword`, `user_page_url`, `status`, `report`, `error`) |
 | `scraped_pages` | Shared URL scrape cache (`result` jsonb, `scraped_at`) — 24h TTL |
 
@@ -44,6 +47,7 @@ All SEO artifacts are **project-scoped**. A user owns projects; every audit, bri
 | `projects` | `briefs` | May reference `source_audit_id`, `source_competitor_analysis_id` |
 | `projects` | `drafts` | May reference `brief_id` |
 | `projects` | `tracked_keywords` | Keyword list per project |
+| `tracked_keywords` | `keyword_rankings` | Append-only weekly/manual position history |
 | `projects` | `competitor_analyses` | Async SERP + gap jobs |
 
 `scraped_pages` is a shared cache keyed by URL, not scoped to a project. It avoids re-scraping the same URL within a 24-hour window.
