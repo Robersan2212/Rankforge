@@ -105,6 +105,29 @@ export interface HeadingsByLevel {
   h6: string[];
 }
 
+export interface GscConnectionStatus {
+  connected: boolean;
+  status: "connected" | "disconnected" | "not_connected" | "error";
+  property_url?: string | null;
+  connected_at?: string | null;
+  needs_reconnect?: boolean;
+  schema_missing?: boolean;
+}
+
+export interface GscMetrics {
+  impressions?: number;
+  clicks?: number;
+  ctr?: number;
+  avg_position?: number;
+  date_range_start?: string;
+  date_range_end?: string;
+  fetched_at?: string;
+  cached?: boolean;
+  status?: "ok" | "url_not_in_property" | "reconnect_required" | "quota_exceeded" | "unavailable";
+  message?: string;
+  property_url?: string;
+}
+
 export interface AuditReport {
   audit_id?: string;
   project_id?: string;
@@ -128,6 +151,8 @@ export interface AuditReport {
   seo_score: number;
   score_breakdown: ScoreBreakdown;
   errors: string[];
+  gsc_metrics?: GscMetrics | null;
+  gsc_connection?: GscConnectionStatus | null;
 }
 
 export interface Audit {

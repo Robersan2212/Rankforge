@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { AuditDeleteButton } from "@/components/workspace/molecules/audit-delete-button";
 import { AuditReportView, isAuditReport } from "@/components/workspace/organisms/audit-report";
-import type { Audit, Project } from "@/lib/types";
+import { GscMetricsPanel } from "@/components/workspace/organisms/gsc-metrics-panel";
+import type { Audit, AuditReport, Project } from "@/lib/types";
 import { getAuditPayload } from "@/lib/types";
+import { formatShortDateTime } from "@/lib/format-date";
 
 interface AuditDetailViewProps {
   project: Project;
@@ -26,7 +28,7 @@ export function AuditDetailView({ project, audit }: AuditDetailViewProps) {
           <h1 className="text-xl font-semibold truncate">{audit.url}</h1>
           <p className="text-sm text-muted-foreground">
             {project.name} · Audited{" "}
-            {new Date(audit.fetched_at ?? audit.created_at).toLocaleString()}
+            {formatShortDateTime(audit.fetched_at ?? audit.created_at)}
           </p>
         </div>
         <AuditDeleteButton
@@ -38,8 +40,14 @@ export function AuditDetailView({ project, audit }: AuditDetailViewProps) {
       </div>
 
       {report ? (
-        <div className="rounded-2xl border border-border bg-card p-6">
+        <div className="rounded-2xl border border-border bg-card p-6 space-y-6">
           <AuditReportView report={report} />
+          <GscMetricsPanel
+            projectId={project.id}
+            auditedUrl={audit.url}
+            metrics={(report as AuditReport).gsc_metrics}
+            connection={(report as AuditReport).gsc_connection}
+          />
         </div>
       ) : (
         <div className="rounded-2xl border border-border bg-card p-6 space-y-2">

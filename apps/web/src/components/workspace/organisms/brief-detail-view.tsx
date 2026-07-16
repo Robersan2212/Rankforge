@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BriefDeleteButton } from "@/components/workspace/molecules/brief-delete-button";
 import { isGeneratedBriefContent } from "@/lib/brief-types";
 import type { Brief, Project } from "@/lib/types";
+import { formatShortDateTime } from "@/lib/format-date";
 
 interface BriefDetailViewProps {
   project: Project;
@@ -24,7 +25,7 @@ export function BriefDetailView({ project, brief }: BriefDetailViewProps) {
           <h1 className="text-xl font-semibold">{brief.keyword}</h1>
           <p className="text-sm text-muted-foreground">
             {project.name} · Generated{" "}
-            {new Date(content?.generated_at ?? brief.created_at).toLocaleString()}
+            {formatShortDateTime(content?.generated_at ?? brief.created_at)}
           </p>
         </div>
         <BriefDeleteButton

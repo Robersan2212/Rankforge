@@ -6,6 +6,7 @@ import { CompetitorDeleteButton } from "@/components/workspace/molecules/competi
 import { Badge } from "@/components/ui/badge";
 import type { CompetitorAnalysis, Project } from "@/lib/types";
 import { isCompetitorAnalysisReport } from "@/lib/types";
+import { formatShortDateTime } from "@/lib/format-date";
 
 interface CompetitorDetailViewProps {
   project: Project;
@@ -52,8 +53,8 @@ export function CompetitorDetailView({
           <p className="text-sm text-muted-foreground">
             {project.name} ·{" "}
             {analysis.completed_at
-              ? `Completed ${new Date(analysis.completed_at).toLocaleString()}`
-              : `Started ${new Date(analysis.created_at).toLocaleString()}`}
+              ? `Completed ${formatShortDateTime(analysis.completed_at)}`
+              : `Started ${formatShortDateTime(analysis.created_at)}`}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">

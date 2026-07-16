@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/workspace/molecules/empty-state";
 import { ListRow } from "@/components/workspace/molecules/list-row";
 import { SECTION_CONFIG } from "@/lib/workspace";
 import type { Draft } from "@/lib/types";
+import { formatShortDate } from "@/lib/format-date";
 
 interface EditorDraftPanelProps {
   projectId: string;
@@ -14,11 +15,7 @@ interface EditorDraftPanelProps {
 }
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatShortDate(value);
 }
 
 function getDraftSubtitle(draft: Draft): string {

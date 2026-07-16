@@ -14,12 +14,18 @@ _DRAFT_WINDOW_SECONDS = 3600
 _DRAFT_MAX_REQUESTS = 5
 _KEYWORD_REFRESH_WINDOW_SECONDS = 300  # 5 minutes per keyword
 _KEYWORD_REFRESH_MAX_REQUESTS = 1
+_GSC_REFRESH_WINDOW_SECONDS = 300
+_GSC_REFRESH_MAX_REQUESTS = 1
+_GSC_CONNECT_WINDOW_SECONDS = 3600
+_GSC_CONNECT_MAX_REQUESTS = 10
 
 _buckets: dict[str, list[float]] = defaultdict(list)
 _brief_buckets: dict[str, list[float]] = defaultdict(list)
 _competitor_buckets: dict[str, list[float]] = defaultdict(list)
 _draft_buckets: dict[str, list[float]] = defaultdict(list)
 _keyword_refresh_buckets: dict[str, list[float]] = defaultdict(list)
+_gsc_refresh_buckets: dict[str, list[float]] = defaultdict(list)
+_gsc_connect_buckets: dict[str, list[float]] = defaultdict(list)
 _active_generations: set[tuple[str, str]] = set()
 _lock = Lock()
 
@@ -125,6 +131,39 @@ def check_keyword_refresh_rate_limit(keyword_id: str) -> None:
         _keyword_refresh_buckets[keyword_id].append(now)
 
 
+def check_gsc_refresh_rate_limit(project_id: str, url: str) -> None:
+    """Debounce manual GSC metrics refresh per project+URL."""
+    key = f"{project_id}:{url.strip().lower()}"
+    now = time.monotonic()
+    cutoff = now - _GSC_REFRESH_WINDOW_SECONDS
+
+    with _lock:
+        timestamps = _gsc_refresh_buckets[key]
+        _gsc_refresh_buckets[key] = [t for t in timestamps if t > cutoff]
+        if len(_gsc_refresh_buckets[key]) >= _GSC_REFRESH_MAX_REQUESTS:
+            raise HTTPException(
+                status_code=429,
+                detail="GSC refresh rate limit exceeded (once per 5 minutes per URL).",
+            )
+        _gsc_refresh_buckets[key].append(now)
+
+
+def check_gsc_connect_rate_limit(user_id: str) -> None:
+    """Limit OAuth connect attempts per user."""
+    now = time.monotonic()
+    cutoff = now - _GSC_CONNECT_WINDOW_SECONDS
+
+    with _lock:
+        timestamps = _gsc_connect_buckets[user_id]
+        _gsc_connect_buckets[user_id] = [t for t in timestamps if t > cutoff]
+        if len(_gsc_connect_buckets[user_id]) >= _GSC_CONNECT_MAX_REQUESTS:
+            raise HTTPException(
+                status_code=429,
+                detail="Too many GSC connect attempts. Try again later.",
+            )
+        _gsc_connect_buckets[user_id].append(now)
+
+
 def try_acquire_generation_lock(user_id: str, brief_id: str) -> bool:
     """Return False if the same user+brief generation is already in flight."""
     key = (user_id, brief_id)
@@ -149,4 +188,6 @@ def reset_rate_limits_for_tests() -> None:
         _competitor_buckets.clear()
         _draft_buckets.clear()
         _keyword_refresh_buckets.clear()
+        _gsc_refresh_buckets.clear()
+        _gsc_connect_buckets.clear()
         _active_generations.clear()

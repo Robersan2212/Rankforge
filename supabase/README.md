@@ -21,6 +21,7 @@ Migrations live in [`migrations/`](migrations/) and are applied in numeric order
 | `0005_brief_generation.sql` | Brief traceability columns (`source_audit_id`, `source_competitor_analysis_id`, `status`) |
 | `0006_draft_generation.sql` | Draft generation fields (`status`, `generation_model`, `word_count`, `generated_at`) |
 | `0007_keyword_rankings.sql` | Keyword tracker: `target_url`/`is_active` on `tracked_keywords`, `keyword_rankings` history |
+| `0008_gsc_integration.sql` | GSC OAuth connections, metrics cache, OAuth state |
 
 ## Tables
 
