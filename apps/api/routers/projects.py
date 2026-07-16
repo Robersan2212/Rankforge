@@ -20,6 +20,7 @@ from apps.api.rate_limit import (
 from apps.api.services.brief_errors import BriefGenerationError
 from apps.api.services.brief_pipeline import generate_and_persist_brief
 from apps.api.services.competitor_pipeline import run_competitor_analysis
+from apps.api.services.gsc_metrics import augment_audit_report
 from apps.api.services.keyword_rankings import check_and_persist_ranking
 from apps.api.services.page_auditor import run_audit
 
@@ -351,6 +352,12 @@ async def create_project_audit(
         **report,
         "project_id": project_id,
     }
+    report_payload = await augment_audit_report(
+        db,
+        project_id=project_id,
+        audited_url=audited_url,
+        report=report_payload,
+    )
     report_json = json.dumps(report_payload)
 
     try:

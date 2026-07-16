@@ -14,6 +14,7 @@ import {
   type ProjectSection,
 } from "@/lib/workspace";
 import type { Audit, Brief, Draft, TrackedKeyword } from "@/lib/types";
+import { formatShortDate } from "@/lib/format-date";
 
 type SectionItem = Audit | Brief | Draft | TrackedKeyword;
 
@@ -24,11 +25,7 @@ interface ProjectResourcePanelProps {
 }
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatShortDate(value);
 }
 
 function getItemTitle(section: ProjectSection, item: SectionItem): string {

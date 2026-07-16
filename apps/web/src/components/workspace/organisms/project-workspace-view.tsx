@@ -3,6 +3,7 @@ import { EditorDraftPanel } from "@/components/workspace/organisms/editor-draft-
 import { KeywordTrackerPanel } from "@/components/workspace/organisms/keyword-tracker-panel";
 import { ProjectMetricRow } from "@/components/workspace/organisms/metric-row";
 import { CompetitorAnalysisPanel } from "@/components/workspace/organisms/competitor-analysis-panel";
+import { GscIntegrationPanel } from "@/components/workspace/organisms/gsc-integration-panel";
 import { ProjectResourcePanel } from "@/components/workspace/organisms/project-resource-panel";
 import { WorkspaceHeader } from "@/components/workspace/organisms/workspace-header";
 import { SECTION_CONFIG, type ProjectSection } from "@/lib/workspace";
@@ -43,6 +44,10 @@ export function ProjectWorkspaceView({
       />
 
       <ProjectMetricRow stats={stats} sectionLabel={sectionConfig.label} />
+
+      {section === "audits" && (
+        <GscIntegrationPanel projectId={project.id} />
+      )}
 
       {section === "briefs" ? (
         <BriefGenerationPanel

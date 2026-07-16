@@ -15,4 +15,8 @@ def load_env_file() -> None:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip())
+        key = key.strip()
+        value = value.strip()
+        existing = os.environ.get(key)
+        if existing is None or not str(existing).strip():
+            os.environ[key] = value

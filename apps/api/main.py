@@ -11,7 +11,7 @@ from apps.api.jobs.keyword_ranking_scheduler import (
     shutdown_keyword_ranking_scheduler,
     start_keyword_ranking_scheduler,
 )
-from apps.api.routers import drafts, projects
+from apps.api.routers import drafts, gsc_auth, projects
 
 
 @asynccontextmanager
@@ -35,6 +35,7 @@ app.add_middleware(
 
 app.include_router(projects.router)
 app.include_router(drafts.router)
+app.include_router(gsc_auth.router)
 
 
 @app.get("/health")

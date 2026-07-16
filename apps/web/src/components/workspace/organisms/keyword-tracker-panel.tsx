@@ -24,6 +24,7 @@ import type {
   KeywordRankingHistory,
   TrackedKeyword,
 } from "@/lib/types";
+import { formatShortDate } from "@/lib/format-date";
 
 const SERIES_COLORS = [
   "#0f766e",
@@ -40,11 +41,7 @@ interface KeywordTrackerPanelProps {
 }
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatShortDate(value);
 }
 
 function formatPosition(value: number | null | undefined) {

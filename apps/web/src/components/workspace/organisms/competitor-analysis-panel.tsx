@@ -10,6 +10,7 @@ import { CompetitorDeleteButton } from "@/components/workspace/molecules/competi
 import { ListRow } from "@/components/workspace/molecules/list-row";
 import { SECTION_CONFIG } from "@/lib/workspace";
 import type { CompetitorAnalysis } from "@/lib/types";
+import { formatShortDate } from "@/lib/format-date";
 
 interface CompetitorAnalysisPanelProps {
   projectId: string;
@@ -17,11 +18,7 @@ interface CompetitorAnalysisPanelProps {
 }
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatShortDate(value);
 }
 
 function statusLabel(status: CompetitorAnalysis["status"]) {

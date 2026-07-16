@@ -1,6 +1,6 @@
 # Rankforge MCP servers
 
-Five independent MCP microservices built with [`@modelcontextprotocol/sdk`](https://www.npmjs.com/package/@modelcontextprotocol/sdk). Each exposes tools over **Streamable HTTP** (for deployment / Claude API connector) and **stdio** (for Cursor).
+Six independent MCP microservices built with [`@modelcontextprotocol/sdk`](https://www.npmjs.com/package/@modelcontextprotocol/sdk). Each exposes tools over **Streamable HTTP** (for deployment / Claude API connector) and **stdio** (for Cursor).
 
 | Server | Port | Tools |
 |--------|------|-------|
@@ -9,6 +9,7 @@ Five independent MCP microservices built with [`@modelcontextprotocol/sdk`](http
 | `competitor-analysis` | 3003 | `extract_page`, `analyze_competitors` |
 | `content-db` | 3004 | `save_brief`, `list_briefs` |
 | `content-brief` | 3005 | `generate_content_brief` |
+| `search-console` | 3006 | `get_gsc_metrics` |
 
 ## Prerequisites
 
@@ -26,6 +27,7 @@ cd mcp/serp && npm install && npm start
 cd mcp/competitor-analysis && npm install && npm start
 cd mcp/content-db && npm install && npm start
 cd mcp/content-brief && npm install && npm start
+cd mcp/search-console && npm install && npm start
 ```
 
 ### Health and REST endpoints
