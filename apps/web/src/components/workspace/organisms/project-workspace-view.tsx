@@ -1,6 +1,6 @@
 import { BriefGenerationPanel } from "@/components/workspace/organisms/brief-generation-panel";
 import { EditorDraftPanel } from "@/components/workspace/organisms/editor-draft-panel";
-import { KeywordTrackerPanel } from "@/components/workspace/organisms/keyword-tracker-panel";
+import { KeywordsSectionPanel } from "@/components/workspace/organisms/keywords-section-panel";
 import { ProjectMetricRow } from "@/components/workspace/organisms/metric-row";
 import { CompetitorAnalysisPanel } from "@/components/workspace/organisms/competitor-analysis-panel";
 import { GscIntegrationPanel } from "@/components/workspace/organisms/gsc-integration-panel";
@@ -67,7 +67,7 @@ export function ProjectWorkspaceView({
           drafts={items as Draft[]}
         />
       ) : section === "keywords" ? (
-        <KeywordTrackerPanel
+        <KeywordsSectionPanel
           projectId={project.id}
           items={items as TrackedKeyword[]}
         />

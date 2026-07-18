@@ -14,6 +14,7 @@ from apps.api.env import load_env_file
 from apps.api.rate_limit import (
     check_brief_rate_limit,
     check_competitor_rate_limit,
+    check_keyword_cluster_rate_limit,
     check_keyword_refresh_rate_limit,
     check_rate_limit,
 )
@@ -21,6 +22,7 @@ from apps.api.services.brief_errors import BriefGenerationError
 from apps.api.services.brief_pipeline import generate_and_persist_brief
 from apps.api.services.competitor_pipeline import run_competitor_analysis
 from apps.api.services.gsc_metrics import augment_audit_report
+from apps.api.services.keyword_cluster_pipeline import run_keyword_cluster_job
 from apps.api.services.keyword_rankings import check_and_persist_ranking
 from apps.api.services.page_auditor import run_audit
 
@@ -70,6 +72,10 @@ MAX_KEYWORD_LENGTH = 200
 class KeywordCreate(BaseModel):
     keyword: str = Field(min_length=1, max_length=MAX_KEYWORD_LENGTH)
     target_url: str | None = Field(default=None, max_length=2048)
+
+
+class KeywordClusterCreate(BaseModel):
+    seedKeyword: str = Field(min_length=2, max_length=100)
 
 
 class CompetitorAnalysisCreate(BaseModel):
@@ -765,6 +771,87 @@ async def create_project_keyword(
     data.setdefault("latest_checked_at", None)
     data.setdefault("latest_source", None)
     return data
+
+
+@router.post("/{project_id}/keywords/cluster", status_code=202)
+async def create_keyword_cluster_job(
+    project_id: str,
+    body: KeywordClusterCreate,
+    background_tasks: BackgroundTasks,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    check_keyword_cluster_rate_limit(current_user["id"])
+
+    seed = body.seedKeyword.strip()
+    if len(seed) < 2:
+        raise HTTPException(status_code=400, detail="seedKeyword must be at least 2 characters")
+
+    try:
+        row = await db.fetchrow(
+            """INSERT INTO public.keyword_cluster_jobs
+               (project_id, seed_keyword, status)
+               VALUES ($1, $2, 'pending')
+               RETURNING id, project_id, seed_keyword, status, created_at""",
+            project_id,
+            seed,
+        )
+    except asyncpg.UndefinedTableError:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Keyword clustering tables are missing. Apply migration "
+                "0009_keyword_clustering.sql (supabase db push)."
+            ),
+        ) from None
+
+    job_id = str(row["id"])
+    background_tasks.add_task(run_keyword_cluster_job, job_id)
+    return {"jobId": job_id}
+
+
+@router.get("/{project_id}/keywords/cluster/{job_id}")
+async def get_keyword_cluster_job(
+    project_id: str,
+    job_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _require_owned_project(db, project_id, current_user["id"])
+    try:
+        row = await db.fetchrow(
+            """SELECT * FROM public.keyword_cluster_jobs
+               WHERE id = $1 AND project_id = $2""",
+            job_id,
+            project_id,
+        )
+    except asyncpg.UndefinedTableError:
+        raise HTTPException(
+            status_code=503,
+            detail="Keyword clustering tables are missing. Apply migration 0009_keyword_clustering.sql.",
+        ) from None
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Cluster job not found")
+
+    result = row["result"]
+    if isinstance(result, str):
+        result = json.loads(result)
+    if isinstance(result, dict) and result.get("clusters") is not None:
+        payload = dict(result)
+        payload["status"] = row["status"]
+        payload["seedKeyword"] = row["seed_keyword"]
+        if row["error"] and not payload.get("error"):
+            payload["error"] = row["error"]
+        return payload
+
+    return {
+        "status": row["status"],
+        "seedKeyword": row["seed_keyword"],
+        "clusters": [],
+        "error": row["error"],
+    }
 
 
 @router.delete("/{project_id}/keywords/{keyword_id}", status_code=204)

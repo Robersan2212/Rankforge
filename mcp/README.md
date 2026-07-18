@@ -1,6 +1,6 @@
 # Rankforge MCP servers
 
-Six independent MCP microservices built with [`@modelcontextprotocol/sdk`](https://www.npmjs.com/package/@modelcontextprotocol/sdk). Each exposes tools over **Streamable HTTP** (for deployment / Claude API connector) and **stdio** (for Cursor).
+Seven independent MCP microservices built with [`@modelcontextprotocol/sdk`](https://www.npmjs.com/package/@modelcontextprotocol/sdk). Each exposes tools over **Streamable HTTP** (for deployment / Claude API connector) and **stdio** (for Cursor).
 
 | Server | Port | Tools |
 |--------|------|-------|
@@ -10,6 +10,7 @@ Six independent MCP microservices built with [`@modelcontextprotocol/sdk`](https
 | `content-db` | 3004 | `save_brief`, `list_briefs` |
 | `content-brief` | 3005 | `generate_content_brief` |
 | `search-console` | 3006 | `get_gsc_metrics` |
+| `keyword-research` | 3007 | `get_related_keywords` |
 
 ## Prerequisites
 
@@ -28,6 +29,7 @@ cd mcp/competitor-analysis && npm install && npm start
 cd mcp/content-db && npm install && npm start
 cd mcp/content-brief && npm install && npm start
 cd mcp/search-console && npm install && npm start
+cd mcp/keyword-research && npm install && npm start
 ```
 
 ### Health and REST endpoints
@@ -40,10 +42,11 @@ cd mcp/search-console && npm install && npm start
 | competitor-analysis | — | `POST /analyze-batch` | `{ "urls": [{ "url": "...", "rank_position": 1 }] }` |
 | content-db | `GET /health` | MCP only | — |
 | content-brief | `GET /health` | MCP only | — |
+| keyword-research | `GET /health` | `POST /research` | `{ "seed": "seo tips", "limit": 50 }` |
 
 MCP endpoint (all servers): `POST http://127.0.0.1:<port>/mcp`
 
-The FastAPI backend calls the page-auditor, serp, and competitor-analysis REST endpoints directly. See **FastAPI integration** below.
+The FastAPI backend calls the page-auditor, serp, competitor-analysis, and keyword-research REST endpoints directly. See **FastAPI integration** below.
 
 ## FastAPI integration
 
@@ -54,6 +57,7 @@ When running the full Rankforge app, configure these in `apps/api/.env`:
 | `PAGE_AUDITOR_URL` | `http://127.0.0.1:3001` | page-auditor |
 | `SERP_URL` | `http://127.0.0.1:3002` | serp |
 | `COMPETITOR_ANALYSIS_URL` | `http://127.0.0.1:3003` | competitor-analysis |
+| `KEYWORD_RESEARCH_URL` | `http://127.0.0.1:3007` | keyword-research |
 
 Brief generation and content gap analysis run inside FastAPI via the Anthropic API (`ANTHROPIC_API_KEY` in `apps/api/.env`). The `content-brief` and `content-db` MCP servers are available for standalone use or Cursor integration.
 
