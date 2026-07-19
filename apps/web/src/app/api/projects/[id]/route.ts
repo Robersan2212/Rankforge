@@ -1,20 +1,21 @@
-import { getApiAuthorizationHeader } from "@/lib/server-auth";
-import { NextResponse } from "next/server";
+import { proxyApiRequest } from "@/lib/api-proxy";
+import { revalidatePath } from "next/cache";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+type RouteContext = { params: { id: string } };
 
-export async function GET(
-  _request: Request,
-  { params }: { params: { id: string } }
-) {
-  const authorization = await getApiAuthorizationHeader();
-  if (!authorization) {
-    return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
-  }
+export async function GET(_request: Request, { params }: RouteContext) {
+  return proxyApiRequest(`/api/projects/${params.id}`);
+}
 
-  const res = await fetch(`${API_BASE}/api/projects/${params.id}`, {
-    headers: { Authorization: authorization },
+export async function DELETE(_request: Request, { params }: RouteContext) {
+  const response = await proxyApiRequest(`/api/projects/${params.id}`, {
+    method: "DELETE",
   });
 
-  return NextResponse.json(await res.json(), { status: res.status });
+  if (response.status === 204) {
+    revalidatePath("/dashboard");
+    revalidatePath(`/project/${params.id}`, "layout");
+  }
+
+  return response;
 }

@@ -5,6 +5,7 @@ import { ProjectMetricRow } from "@/components/workspace/organisms/metric-row";
 import { CompetitorAnalysisPanel } from "@/components/workspace/organisms/competitor-analysis-panel";
 import { GscIntegrationPanel } from "@/components/workspace/organisms/gsc-integration-panel";
 import { ProjectResourcePanel } from "@/components/workspace/organisms/project-resource-panel";
+import { ProjectDeleteButton } from "@/components/workspace/molecules/project-delete-button";
 import { WorkspaceHeader } from "@/components/workspace/organisms/workspace-header";
 import { SECTION_CONFIG, type ProjectSection } from "@/lib/workspace";
 import type {
@@ -41,6 +42,12 @@ export function ProjectWorkspaceView({
       <WorkspaceHeader
         title={project.name}
         subtitle={`/${project.slug} · ${sectionConfig.label}`}
+        actions={
+          <ProjectDeleteButton
+            projectId={project.id}
+            projectName={project.name}
+          />
+        }
       />
 
       <ProjectMetricRow stats={stats} sectionLabel={sectionConfig.label} />
