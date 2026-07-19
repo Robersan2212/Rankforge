@@ -14,6 +14,7 @@ import { useDraftAutosave } from "@/components/editor/use-draft-autosave";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DraftDeleteButton } from "@/components/workspace/molecules/draft-delete-button";
 import { isGeneratedBriefContent } from "@/lib/brief-types";
 import { useDraftStream } from "@/lib/use-draft-stream";
 import type { Brief, Draft, Project } from "@/lib/types";
@@ -157,6 +158,14 @@ export function DraftEditorView({
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+            <DraftDeleteButton
+              projectId={project.id}
+              draftId={draft.id}
+              redirectTo={`/project/${project.id}/editor`}
+              variant="button"
+            />
+          </div>
           <GenerationStatus
             streamStatus={streamStatus}
             chunkCount={chunkCount}

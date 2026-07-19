@@ -26,3 +26,16 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
   return response;
 }
+
+export async function DELETE(_request: Request, { params }: RouteContext) {
+  const response = await proxyApiRequest(
+    `/api/projects/${params.id}/drafts/${params.draftId}`,
+    { method: "DELETE" }
+  );
+
+  if (response.status === 204) {
+    revalidateProjectWorkspace(params.id);
+  }
+
+  return response;
+}
