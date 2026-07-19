@@ -18,6 +18,8 @@ _GSC_REFRESH_WINDOW_SECONDS = 300
 _GSC_REFRESH_MAX_REQUESTS = 1
 _GSC_CONNECT_WINDOW_SECONDS = 3600
 _GSC_CONNECT_MAX_REQUESTS = 10
+_CLUSTER_WINDOW_SECONDS = 3600
+_CLUSTER_MAX_REQUESTS = 5
 
 _buckets: dict[str, list[float]] = defaultdict(list)
 _brief_buckets: dict[str, list[float]] = defaultdict(list)
@@ -26,6 +28,7 @@ _draft_buckets: dict[str, list[float]] = defaultdict(list)
 _keyword_refresh_buckets: dict[str, list[float]] = defaultdict(list)
 _gsc_refresh_buckets: dict[str, list[float]] = defaultdict(list)
 _gsc_connect_buckets: dict[str, list[float]] = defaultdict(list)
+_cluster_buckets: dict[str, list[float]] = defaultdict(list)
 _active_generations: set[tuple[str, str]] = set()
 _lock = Lock()
 
@@ -164,6 +167,27 @@ def check_gsc_connect_rate_limit(user_id: str) -> None:
         _gsc_connect_buckets[user_id].append(now)
 
 
+def check_keyword_cluster_rate_limit(
+    user_id: str, *, max_requests: int = _CLUSTER_MAX_REQUESTS
+) -> None:
+    """Sliding-window rate limit for semantic clustering (5 per hour)."""
+    now = time.monotonic()
+    cutoff = now - _CLUSTER_WINDOW_SECONDS
+
+    with _lock:
+        timestamps = _cluster_buckets[user_id]
+        _cluster_buckets[user_id] = [t for t in timestamps if t > cutoff]
+        if len(_cluster_buckets[user_id]) >= max_requests:
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "Keyword clustering rate limit exceeded "
+                    "(5 per hour). Try again later."
+                ),
+            )
+        _cluster_buckets[user_id].append(now)
+
+
 def try_acquire_generation_lock(user_id: str, brief_id: str) -> bool:
     """Return False if the same user+brief generation is already in flight."""
     key = (user_id, brief_id)
@@ -190,4 +214,5 @@ def reset_rate_limits_for_tests() -> None:
         _keyword_refresh_buckets.clear()
         _gsc_refresh_buckets.clear()
         _gsc_connect_buckets.clear()
+        _cluster_buckets.clear()
         _active_generations.clear()

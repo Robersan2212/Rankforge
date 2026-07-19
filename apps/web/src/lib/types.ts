@@ -81,6 +81,24 @@ export interface KeywordRankingHistory {
   history: KeywordRanking[];
 }
 
+export interface KeywordClusterKeyword {
+  keyword: string;
+  searchVolume: number | null;
+  difficulty: number | null;
+}
+
+export interface KeywordClusterGroup {
+  label: string;
+  keywords: KeywordClusterKeyword[];
+}
+
+export interface KeywordClusterJob {
+  status: "pending" | "running" | "complete" | "partial" | "failed";
+  seedKeyword: string;
+  clusters: KeywordClusterGroup[];
+  error?: string | null;
+}
+
 export interface ScoreCategory {
   score: number;
   max: number;
