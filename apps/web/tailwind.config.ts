@@ -72,7 +72,8 @@ const config: Config = {
         },
       },
       animation: {
-        "route-progress": "route-progress 0.4s ease-out forwards",
+        "route-progress": "route-progress 0.5s ease-out forwards",
+        "route-progress-soft": "route-progress 0.2s ease-out forwards",
       },
     },
   },

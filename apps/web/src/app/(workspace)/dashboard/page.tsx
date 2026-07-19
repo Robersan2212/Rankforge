@@ -1,5 +1,9 @@
 import { DashboardView } from "@/components/workspace/organisms/dashboard-view";
+import { PageLoading } from "@/components/workspace/molecules/page-loading";
+import { PageReveal } from "@/components/workspace/molecules/page-reveal";
+import { DashboardSkeleton } from "@/components/workspace/molecules/page-skeletons";
 import { fetchFromApi } from "@/lib/api-server";
+import { LOADING_LABELS } from "@/lib/page-loading";
 import { getAuthenticatedUser } from "@/lib/server-auth";
 import type { Project, SeoPerformance, UserStats } from "@/lib/types";
 
@@ -47,11 +51,19 @@ export default async function DashboardPage() {
   }
 
   return (
-    <DashboardView
-      projects={projects}
-      stats={stats}
-      seoPerformance={seoPerformance}
-      userEmail={user?.email ?? "Signed in"}
-    />
+    <PageReveal
+      fallback={
+        <PageLoading label={LOADING_LABELS.dashboard}>
+          <DashboardSkeleton />
+        </PageLoading>
+      }
+    >
+      <DashboardView
+        projects={projects}
+        stats={stats}
+        seoPerformance={seoPerformance}
+        userEmail={user?.email ?? "Signed in"}
+      />
+    </PageReveal>
   );
 }

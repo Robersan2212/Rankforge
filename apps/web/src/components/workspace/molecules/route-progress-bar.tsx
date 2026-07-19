@@ -2,17 +2,23 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useNavigationTiming } from "@/components/workspace/molecules/navigation-timing";
+import { MIN_PAGE_LOAD_MS, SOFT_SECTION_TRANSITION_MS } from "@/lib/page-loading";
 import { cn } from "@/lib/utils";
 
 export function RouteProgressBar() {
   const pathname = usePathname();
+  const { enforceMinLoad } = useNavigationTiming();
   const [active, setActive] = useState(false);
 
   useEffect(() => {
     setActive(true);
-    const timer = window.setTimeout(() => setActive(false), 400);
+    const duration = enforceMinLoad
+      ? MIN_PAGE_LOAD_MS
+      : SOFT_SECTION_TRANSITION_MS;
+    const timer = window.setTimeout(() => setActive(false), duration);
     return () => window.clearTimeout(timer);
-  }, [pathname]);
+  }, [pathname, enforceMinLoad]);
 
   return (
     <div
@@ -26,7 +32,10 @@ export function RouteProgressBar() {
       <div
         className={cn(
           "h-full w-1/3 bg-primary",
-          active && "animate-route-progress"
+          active &&
+            (enforceMinLoad
+              ? "animate-route-progress"
+              : "animate-route-progress-soft")
         )}
       />
     </div>
