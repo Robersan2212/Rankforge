@@ -75,14 +75,11 @@ export function DashboardView({
         title="Your workspaces"
         subtitle={userEmail}
         actions={
-          <>
-            <SearchInput
-              value={search}
-              onChange={setSearch}
-              placeholder="Search projects"
-            />
-            <Button onClick={() => setModalOpen(true)}>New project</Button>
-          </>
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Search projects"
+          />
         }
       />
 
@@ -95,7 +92,18 @@ export function DashboardView({
             firstProjectId={filteredProjects[0]?.id ?? projects[0]?.id}
           />
         </div>
-        <RecentActivityList projects={filteredProjects} />
+        <RecentActivityList
+          projects={filteredProjects}
+          headerAction={
+            <Button
+              size="sm"
+              className="rounded-full px-3.5"
+              onClick={() => setModalOpen(true)}
+            >
+              New project
+            </Button>
+          }
+        />
       </div>
 
       <NewProjectModal open={modalOpen} onClose={() => setModalOpen(false)} />

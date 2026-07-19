@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { DraftDeleteButton } from "@/components/workspace/molecules/draft-delete-button";
 import { EmptyState } from "@/components/workspace/molecules/empty-state";
 import { ListRow } from "@/components/workspace/molecules/list-row";
 import { SECTION_CONFIG } from "@/lib/workspace";
@@ -103,6 +104,12 @@ export function EditorDraftPanel({ projectId, drafts }: EditorDraftPanelProps) {
                 subtitle={getDraftSubtitle(draft)}
                 initials={config.label.slice(0, 2).toUpperCase()}
                 href={`/project/${projectId}/editor/${draft.id}`}
+                trailing={
+                  <DraftDeleteButton
+                    projectId={projectId}
+                    draftId={draft.id}
+                  />
+                }
               />
             ))}
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { Project } from "@/lib/types";
 import { ListRow } from "@/components/workspace/molecules/list-row";
 import { EmptyState } from "@/components/workspace/molecules/empty-state";
@@ -13,6 +13,8 @@ interface RecentActivityListProps {
   emptyTitle?: string;
   emptyDescription?: string;
   className?: string;
+  /** Rendered at the top-right of the panel header (e.g. New project). */
+  headerAction?: ReactNode;
 }
 
 export function RecentActivityList({
@@ -20,36 +22,40 @@ export function RecentActivityList({
   emptyTitle = "No recent activity",
   emptyDescription = "Activity from audits, briefs, and keywords will show here.",
   className,
+  headerAction,
 }: RecentActivityListProps) {
   const [tab, setTab] = useState<"projects" | "activity">("projects");
 
   return (
     <div className={cn("flex flex-col rounded-2xl ring-1 ring-border", className)}>
-      <div className="flex items-center gap-4 border-b border-border px-5 py-4">
-        <button
-          type="button"
-          onClick={() => setTab("projects")}
-          className={cn(
-            "text-sm transition-colors",
-            tab === "projects"
-              ? "font-medium text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          Projects
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("activity")}
-          className={cn(
-            "text-sm transition-colors",
-            tab === "activity"
-              ? "font-medium text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          Activity
-        </button>
+      <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
+        <div className="flex min-w-0 items-center gap-4">
+          <button
+            type="button"
+            onClick={() => setTab("projects")}
+            className={cn(
+              "text-sm transition-colors",
+              tab === "projects"
+                ? "font-medium text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Projects
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("activity")}
+            className={cn(
+              "text-sm transition-colors",
+              tab === "activity"
+                ? "font-medium text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Activity
+          </button>
+        </div>
+        {headerAction ? <div className="shrink-0">{headerAction}</div> : null}
       </div>
 
       <ScrollArea className="h-[320px]">

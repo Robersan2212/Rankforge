@@ -3,6 +3,7 @@ import { AuditDetailView } from "@/components/workspace/organisms/audit-detail-v
 import { BriefDetailView } from "@/components/workspace/organisms/brief-detail-view";
 import { CompetitorDetailView } from "@/components/workspace/organisms/competitor-detail-view";
 import { DraftEditorView } from "@/components/editor/draft-editor-view";
+import { ProjectPageReveal } from "@/components/workspace/molecules/project-page-reveal";
 import { ProjectWorkspaceView } from "@/components/workspace/organisms/project-workspace-view";
 import { fetchFromApi, fetchProject } from "@/lib/api-server";
 import {
@@ -93,7 +94,11 @@ export default async function ProjectSectionPage({
       auditRes.json(),
     ]);
 
-    return <AuditDetailView project={project} audit={audit} />;
+    return (
+      <ProjectPageReveal kind="audit">
+        <AuditDetailView project={project} audit={audit} />
+      </ProjectPageReveal>
+    );
   }
 
   if (sectionParam === "briefs" && sectionParts[1]) {
@@ -122,7 +127,11 @@ export default async function ProjectSectionPage({
       briefRes.json(),
     ]);
 
-    return <BriefDetailView project={project} brief={brief} />;
+    return (
+      <ProjectPageReveal kind="brief">
+        <BriefDetailView project={project} brief={brief} />
+      </ProjectPageReveal>
+    );
   }
 
   if (sectionParam === "competitors" && sectionParts[1]) {
@@ -151,7 +160,11 @@ export default async function ProjectSectionPage({
     const [project, analysis]: [Project, CompetitorAnalysis] =
       await Promise.all([projectRes.json(), analysisRes.json()]);
 
-    return <CompetitorDetailView project={project} analysis={analysis} />;
+    return (
+      <ProjectPageReveal kind="competitor">
+        <CompetitorDetailView project={project} analysis={analysis} />
+      </ProjectPageReveal>
+    );
   }
 
   if (sectionParam === "editor" && sectionParts[1]) {
@@ -183,12 +196,14 @@ export default async function ProjectSectionPage({
     const briefs: Brief[] = briefsRes.ok ? await briefsRes.json() : [];
 
     return (
-      <DraftEditorView
-        project={project}
-        draft={draft}
-        briefs={briefs}
-        initialBriefId={searchParams?.briefId ?? draft.brief_id}
-      />
+      <ProjectPageReveal kind="editor">
+        <DraftEditorView
+          project={project}
+          draft={draft}
+          briefs={briefs}
+          initialBriefId={searchParams?.briefId ?? draft.brief_id}
+        />
+      </ProjectPageReveal>
     );
   }
 
@@ -223,20 +238,22 @@ export default async function ProjectSectionPage({
   }
 
   return (
-    <ProjectWorkspaceView
-      project={project}
-      section={sectionParam}
-      items={
-        items as
-          | Audit[]
-          | Brief[]
-          | Draft[]
-          | TrackedKeyword[]
-          | CompetitorAnalysis[]
-      }
-      stats={stats}
-      audits={audits}
-      competitorAnalyses={competitorAnalyses}
-    />
+    <ProjectPageReveal kind="section">
+      <ProjectWorkspaceView
+        project={project}
+        section={sectionParam}
+        items={
+          items as
+            | Audit[]
+            | Brief[]
+            | Draft[]
+            | TrackedKeyword[]
+            | CompetitorAnalysis[]
+        }
+        stats={stats}
+        audits={audits}
+        competitorAnalyses={competitorAnalyses}
+      />
+    </ProjectPageReveal>
   );
 }

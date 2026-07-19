@@ -79,7 +79,10 @@ export function GscMetricsPanel({
         </p>
         <a
           href={`/api/auth/gsc/start?project_id=${encodeURIComponent(projectId)}`}
-          className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
+          className={cn(
+            buttonVariants({ size: "sm", variant: "outline" }),
+            "rounded-full px-3.5"
+          )}
         >
           Connect Google Search Console
         </a>
@@ -97,7 +100,10 @@ export function GscMetricsPanel({
         {display.status === "reconnect_required" && (
           <a
             href={`/api/auth/gsc/start?project_id=${encodeURIComponent(projectId)}`}
-            className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
+            className={cn(
+              buttonVariants({ size: "sm", variant: "outline" }),
+              "rounded-full px-3.5"
+            )}
           >
             Reconnect Google Search Console
           </a>

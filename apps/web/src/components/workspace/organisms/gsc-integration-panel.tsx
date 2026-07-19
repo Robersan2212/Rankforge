@@ -143,6 +143,7 @@ export function GscIntegrationPanel({ projectId }: GscIntegrationPanelProps) {
             type="button"
             variant="outline"
             size="sm"
+            className="rounded-full px-3.5"
             onClick={() => setDisconnectOpen(true)}
           >
             Disconnect
@@ -162,9 +163,14 @@ export function GscIntegrationPanel({ projectId }: GscIntegrationPanelProps) {
           <div>
             <a
               href={`/api/auth/gsc/start?project_id=${encodeURIComponent(projectId)}`}
-              className={cn(buttonVariants({ size: "sm" }))}
+              className={cn(
+                buttonVariants({ size: "sm" }),
+                "rounded-full px-3.5"
+              )}
             >
-              {needsReconnect ? "Reconnect Google Search Console" : "Connect Google Search Console"}
+              {needsReconnect
+                ? "Reconnect Google Search Console"
+                : "Connect Google Search Console"}
             </a>
           </div>
         </div>
