@@ -3,9 +3,13 @@ import { z } from "zod";
 import { SerpError } from "./lib/errors.js";
 import { getTopResults } from "./lib/serp.js";
 
-async function runSerpTool(keyword: string, count?: number) {
+async function runSerpTool(
+  keyword: string,
+  count?: number,
+  location?: string
+) {
   try {
-    const result = await getTopResults(keyword, count ?? 10);
+    const result = await getTopResults(keyword, count ?? 10, location);
     return {
       content: [
         {
@@ -21,7 +25,12 @@ async function runSerpTool(keyword: string, count?: number) {
       content: [
         {
           type: "text" as const,
-          text: JSON.stringify({ success: false, error: code, message, keyword }),
+          text: JSON.stringify({
+            success: false,
+            error: code,
+            message,
+            keyword,
+          }),
         },
       ],
       isError: true,
@@ -35,6 +44,14 @@ export function createSerpServer(): McpServer {
     version: "1.0.0",
   });
 
+  const locationField = z
+    .string()
+    .max(100)
+    .optional()
+    .describe(
+      'Optional local market: city ("Logan, UT"), US state ("Utah" or "UT"), or ZIP code ("84321")'
+    );
+
   const inputSchema = {
     keyword: z.string().min(1).describe("Target keyword to search"),
     count: z
@@ -44,16 +61,18 @@ export function createSerpServer(): McpServer {
       .max(10)
       .optional()
       .describe("Number of organic results (default 10)"),
+    location: locationField,
   };
 
   server.registerTool(
     "get_top_results",
     {
       description:
-        "Fetches top organic Google search results for a keyword via SerpAPI.",
+        "Fetches top organic Google search results for a keyword via SerpAPI. Optional location targets a local market.",
       inputSchema,
     },
-    async ({ keyword, count }) => runSerpTool(keyword, count)
+    async ({ keyword, count, location }) =>
+      runSerpTool(keyword, count, location)
   );
 
   server.registerTool(
@@ -61,9 +80,12 @@ export function createSerpServer(): McpServer {
     {
       description:
         "Alias for get_top_results — fetches organic Google results via SerpAPI.",
-      inputSchema: { keyword: inputSchema.keyword },
+      inputSchema: {
+        keyword: inputSchema.keyword,
+        location: locationField,
+      },
     },
-    async ({ keyword }) => runSerpTool(keyword)
+    async ({ keyword, location }) => runSerpTool(keyword, undefined, location)
   );
 
   return server;

@@ -232,6 +232,10 @@ export interface CompetitorPage {
 export interface CompetitorAnalysisReport {
   keyword: string;
   user_page_url: string;
+  /** Resolved location used for SERP, or null for global results. */
+  location_applied?: string | null;
+  /** Optional note when a thin local market returns fewer than requested results. */
+  note?: string;
   requested_at: string;
   results_requested: number;
   results_returned: number;
@@ -245,6 +249,7 @@ export interface CompetitorAnalysis {
   project_id: string;
   keyword: string;
   user_page_url: string;
+  location?: string | null;
   status: "pending" | "running" | "completed" | "partial" | "failed";
   report: CompetitorAnalysisReport | null;
   error: string | null;

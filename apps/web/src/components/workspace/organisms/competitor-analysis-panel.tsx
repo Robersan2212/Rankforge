@@ -47,6 +47,7 @@ export function CompetitorAnalysisPanel({
 
   const [keyword, setKeyword] = useState("");
   const [userPageUrl, setUserPageUrl] = useState("");
+  const [location, setLocation] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -105,6 +106,9 @@ export function CompetitorAnalysisPanel({
           body: JSON.stringify({
             keyword: keyword.trim(),
             user_page_url: userPageUrl.trim(),
+            ...(location.trim()
+              ? { location: location.trim().slice(0, 100) }
+              : {}),
           }),
         }
       );
@@ -125,6 +129,7 @@ export function CompetitorAnalysisPanel({
 
       setKeyword("");
       setUserPageUrl("");
+      setLocation("");
       startTransition(() => {
         router.push(`/project/${projectId}/competitors/${analysis.id}`);
       });
@@ -170,6 +175,25 @@ export function CompetitorAnalysisPanel({
           />
         </div>
 
+        <div className="space-y-2">
+          <Label htmlFor="competitor-location">
+            Location{" "}
+            <span className="font-normal text-muted-foreground">(optional)</span>
+          </Label>
+          <Input
+            id="competitor-location"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="Logan, UT · Utah · 84321"
+            maxLength={100}
+            disabled={loading}
+          />
+          <p className="text-xs text-muted-foreground">
+            Optional local market: city + state, full state name, abbreviation
+            (UT), or ZIP code. Leave blank for global.
+          </p>
+        </div>
+
         {error && (
           <p className="text-sm text-destructive" role="alert">
             {error}
@@ -197,7 +221,11 @@ export function CompetitorAnalysisPanel({
               <ListRow
                 key={item.id}
                 title={item.keyword}
-                subtitle={`${statusLabel(item.status)} · ${formatDate(item.created_at)}`}
+                subtitle={`${statusLabel(item.status)}${
+                  item.location || item.report?.location_applied
+                    ? ` · ${item.report?.location_applied ?? item.location}`
+                    : ""
+                } · ${formatDate(item.created_at)}`}
                 initials="CA"
                 href={`/project/${projectId}/competitors/${item.id}`}
                 trailing={

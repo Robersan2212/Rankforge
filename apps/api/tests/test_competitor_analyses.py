@@ -25,6 +25,7 @@ SERP_FIXTURE = {
         {"url": f"https://competitor{i}.example.com/page", "rank_position": i + 1}
         for i in range(10)
     ],
+    "location_applied": None,
 }
 
 
@@ -238,6 +239,7 @@ async def _run_pipeline_returns_at_least_8_of_10():
     report = json.loads(final_update[1][2])
     assert report["results_returned"] >= 8
     assert final_update[1][1] == "completed"
+    assert report.get("location_applied") is None
 
     for comp in report["competitors"]:
         if comp["status"] == "ok":
@@ -324,3 +326,178 @@ async def _run_pipeline_marks_failed_url_and_completes():
     assert failed["status"] == "failed"
     assert failed["reason"] == "timeout"
     assert report["results_returned"] >= 8
+    assert report.get("location_applied") is None
+
+
+def test_pipeline_applies_location_to_serp_and_report():
+    asyncio.run(_run_pipeline_applies_location())
+
+
+async def _run_pipeline_applies_location():
+    serp_local = {
+        "keyword": "plumber",
+        "location_applied": "Austin, TX",
+        "note": "Only 3 organic results available for this location (requested 10).",
+        "results": [
+            {"url": f"https://local{i}.example.com/page", "rank_position": i + 1}
+            for i in range(3)
+        ],
+    }
+
+    mock_conn = AsyncMock()
+    analysis_row = {
+        "id": ANALYSIS_ID,
+        "keyword": "plumber",
+        "user_page_url": "https://example.com/plumber",
+        "location": "Austin, TX",
+        "created_at": datetime.now(timezone.utc),
+    }
+
+    async def fetchrow(query, *args):
+        if "FROM public.competitor_analyses WHERE id" in query:
+            return analysis_row
+        if "scraped_pages" in query:
+            return None
+        return None
+
+    updates: list[tuple] = []
+
+    async def execute(query, *args):
+        updates.append((query, args))
+        return "UPDATE 1"
+
+    mock_conn.fetchrow = fetchrow
+    mock_conn.execute = execute
+
+    mock_serp = AsyncMock(return_value=serp_local)
+
+    with patch(
+        "apps.api.services.competitor_pipeline._get_db_connection",
+        new_callable=AsyncMock,
+        return_value=mock_conn,
+    ):
+        with patch(
+            "apps.api.services.competitor_pipeline.get_top_results",
+            mock_serp,
+        ):
+            with patch(
+                "apps.api.services.competitor_pipeline.extract_page",
+                new_callable=AsyncMock,
+                side_effect=lambda url, rank_position=None: _ok_extract(
+                    url, rank_position
+                ),
+            ):
+                with patch(
+                    "apps.api.services.competitor_pipeline.compute_content_gap",
+                    new_callable=AsyncMock,
+                    return_value={
+                        "topics_missing_from_user_page": [],
+                        "topics_user_page_shares": ["keyword research"],
+                    },
+                ):
+                    await run_competitor_analysis(ANALYSIS_ID)
+
+    mock_serp.assert_awaited_once_with("plumber", count=10, location="Austin, TX")
+    report = json.loads(updates[-1][1][2])
+    assert report["location_applied"] == "Austin, TX"
+    assert report["results_requested"] == 3
+    assert "Only 3" in report["note"]
+    assert len(report["competitors"]) == 3
+
+
+def test_pipeline_fails_cleanly_on_invalid_location():
+    asyncio.run(_run_pipeline_invalid_location())
+
+
+async def _run_pipeline_invalid_location():
+    from fastapi import HTTPException
+
+    mock_conn = AsyncMock()
+    analysis_row = {
+        "id": ANALYSIS_ID,
+        "keyword": "plumber",
+        "user_page_url": "https://example.com/plumber",
+        "location": "NotARealPlaceXYZ",
+        "created_at": datetime.now(timezone.utc),
+    }
+
+    async def fetchrow(query, *args):
+        if "FROM public.competitor_analyses WHERE id" in query:
+            return analysis_row
+        return None
+
+    updates: list[tuple] = []
+
+    async def execute(query, *args):
+        updates.append((query, args))
+        return "UPDATE 1"
+
+    mock_conn.fetchrow = fetchrow
+    mock_conn.execute = execute
+
+    with patch(
+        "apps.api.services.competitor_pipeline._get_db_connection",
+        new_callable=AsyncMock,
+        return_value=mock_conn,
+    ):
+        with patch(
+            "apps.api.services.competitor_pipeline.get_top_results",
+            new_callable=AsyncMock,
+            side_effect=HTTPException(
+                status_code=400,
+                detail='Unrecognized location: "NotARealPlaceXYZ"',
+            ),
+        ):
+            await run_competitor_analysis(ANALYSIS_ID)
+
+    final = updates[-1]
+    assert "failed" in final[0]
+    assert "Unrecognized location" in final[1][1]
+
+
+def test_create_competitor_analysis_accepts_optional_location():
+    fake_payload = {"sub": USER_A, "email": "a@example.com"}
+
+    async def mock_get_db():
+        mock_conn = AsyncMock()
+
+        async def fetchrow(query, *args):
+            if "FROM public.projects WHERE id" in query:
+                return {"id": args[0]}
+            if "INSERT INTO public.competitor_analyses" in query:
+                return {
+                    "id": ANALYSIS_ID,
+                    "project_id": PROJECT_A,
+                    "keyword": args[1],
+                    "user_page_url": args[2],
+                    "location": args[3] if len(args) > 3 else None,
+                    "status": "pending",
+                    "report": None,
+                    "error": None,
+                    "created_at": datetime.now(timezone.utc),
+                    "completed_at": None,
+                }
+            return None
+
+        mock_conn.fetchrow = fetchrow
+        yield mock_conn
+
+    app.dependency_overrides[get_db] = mock_get_db
+
+    with patch(
+        "apps.api.routers.projects.run_competitor_analysis",
+        new_callable=AsyncMock,
+    ):
+        with patch("apps.api.auth._decode_token", return_value=fake_payload):
+            res = client.post(
+                f"/api/projects/{PROJECT_A}/competitor-analyses",
+                headers={"Authorization": "Bearer token"},
+                json={
+                    "keyword": "plumber near me",
+                    "user_page_url": "https://example.com/plumber",
+                    "location": "Austin, TX",
+                },
+            )
+
+    assert res.status_code == 201
+    assert res.json()["location"] == "Austin, TX"
