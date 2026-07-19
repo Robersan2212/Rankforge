@@ -15,6 +15,26 @@ export interface UserStats {
   keywords: number;
 }
 
+export interface SeoPerformancePoint {
+  id: string;
+  project_id: string;
+  project_name: string;
+  url: string;
+  seo_score: number;
+  audited_at: string | null;
+}
+
+export interface SeoPerformanceSummary {
+  audit_count: number;
+  average_score: number | null;
+  latest_score: number | null;
+}
+
+export interface SeoPerformance {
+  points: SeoPerformancePoint[];
+  summary: SeoPerformanceSummary;
+}
+
 export interface ProjectStats {
   audits: number;
   briefs: number;
@@ -93,6 +113,7 @@ export interface KeywordClusterGroup {
 }
 
 export interface KeywordClusterJob {
+  jobId?: string;
   status: "pending" | "running" | "complete" | "partial" | "failed";
   seedKeyword: string;
   clusters: KeywordClusterGroup[];

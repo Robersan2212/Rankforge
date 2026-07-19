@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,25 +14,27 @@ export function KeywordClusterPanel({ projectId }: KeywordClusterPanelProps) {
   const [seed, setSeed] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [job, setJob] = useState<KeywordClusterJob | null>(null);
-  const [, startTransition] = useTransition();
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, []);
+  function stopPolling() {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }
 
   async function pollUntilDone(jobId: string) {
     const maxAttempts = 120;
     let attempts = 0;
 
     return new Promise<KeywordClusterJob>((resolve, reject) => {
+      stopPolling();
       pollRef.current = setInterval(async () => {
         attempts += 1;
         if (attempts > maxAttempts) {
-          if (pollRef.current) clearInterval(pollRef.current);
+          stopPolling();
           reject(new Error("Clustering timed out while waiting for results"));
           return;
         }
@@ -48,7 +50,7 @@ export function KeywordClusterPanel({ projectId }: KeywordClusterPanelProps) {
             data.status === "partial" ||
             data.status === "failed"
           ) {
-            if (pollRef.current) clearInterval(pollRef.current);
+            stopPolling();
             resolve(data);
           } else {
             setJob(data);
@@ -60,11 +62,64 @@ export function KeywordClusterPanel({ projectId }: KeywordClusterPanelProps) {
     });
   }
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadLatest() {
+      setInitialLoading(true);
+      try {
+        const res = await fetch(`/api/projects/${projectId}/keywords/cluster`);
+        if (cancelled) return;
+        if (res.status === 404) {
+          setJob(null);
+          return;
+        }
+        if (!res.ok) return;
+
+        const data = (await res.json()) as KeywordClusterJob;
+        setJob(data);
+        if (data.seedKeyword) setSeed(data.seedKeyword);
+
+        if (
+          (data.status === "pending" || data.status === "running") &&
+          data.jobId
+        ) {
+          setLoading(true);
+          try {
+            const finalJob = await pollUntilDone(data.jobId);
+            if (!cancelled) setJob(finalJob);
+          } catch (err) {
+            if (!cancelled) {
+              setError(
+                err instanceof Error ? err.message : "Clustering failed"
+              );
+            }
+          } finally {
+            if (!cancelled) setLoading(false);
+          }
+        }
+      } catch {
+        // leave empty state on load failure
+      } finally {
+        if (!cancelled) setInitialLoading(false);
+      }
+    }
+
+    void loadLatest();
+
+    return () => {
+      cancelled = true;
+      stopPolling();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when project changes
+  }, [projectId]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     setJob(null);
+    stopPolling();
 
     try {
       const res = await fetch(`/api/projects/${projectId}/keywords/cluster`, {
@@ -84,6 +139,7 @@ export function KeywordClusterPanel({ projectId }: KeywordClusterPanelProps) {
 
       const jobId = data.jobId as string;
       setJob({
+        jobId,
         status: "pending",
         seedKeyword: seed.trim(),
         clusters: [],
@@ -91,9 +147,6 @@ export function KeywordClusterPanel({ projectId }: KeywordClusterPanelProps) {
       });
       const finalJob = await pollUntilDone(jobId);
       setJob(finalJob);
-      startTransition(() => {
-        // no-op refresh hook for future list views
-      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Clustering failed");
     } finally {
@@ -139,6 +192,10 @@ export function KeywordClusterPanel({ projectId }: KeywordClusterPanelProps) {
           {loading ? "Clustering…" : "Generate clusters"}
         </Button>
       </form>
+
+      {initialLoading && !job && (
+        <p className="text-sm text-muted-foreground">Loading saved clusters…</p>
+      )}
 
       {job && (
         <div className="space-y-4">

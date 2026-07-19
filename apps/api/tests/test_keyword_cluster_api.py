@@ -144,4 +144,70 @@ def test_get_cluster_job_returns_result_snapshot():
     assert res.status_code == 200
     body = res.json()
     assert body["status"] == "complete"
+    assert body["jobId"] == JOB_ID
     assert body["clusters"][0]["label"] == "Beginner SEO"
+
+
+def test_get_latest_cluster_job_returns_most_recent():
+    conn = AsyncMock()
+    conn.fetchrow = AsyncMock(
+        side_effect=[
+            {"id": PROJECT_A},
+            {
+                "id": JOB_ID,
+                "project_id": PROJECT_A,
+                "seed_keyword": "janitorial services",
+                "status": "complete",
+                "error": None,
+                "result": {
+                    "status": "complete",
+                    "seedKeyword": "janitorial services",
+                    "clusters": [{"label": "Commercial Cleaning", "keywords": []}],
+                    "error": None,
+                },
+            },
+        ]
+    )
+
+    async def override_db():
+        yield conn
+
+    app.dependency_overrides[get_db] = override_db
+
+    with patch(
+        "apps.api.auth._decode_token",
+        return_value={"sub": USER_A, "email": "a@example.com"},
+    ):
+        client = TestClient(app)
+        res = client.get(
+            f"/api/projects/{PROJECT_A}/keywords/cluster",
+            headers=_auth_headers(),
+        )
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["jobId"] == JOB_ID
+    assert body["seedKeyword"] == "janitorial services"
+    assert body["clusters"][0]["label"] == "Commercial Cleaning"
+
+
+def test_get_latest_cluster_job_404_when_empty():
+    conn = AsyncMock()
+    conn.fetchrow = AsyncMock(side_effect=[{"id": PROJECT_A}, None])
+
+    async def override_db():
+        yield conn
+
+    app.dependency_overrides[get_db] = override_db
+
+    with patch(
+        "apps.api.auth._decode_token",
+        return_value={"sub": USER_A, "email": "a@example.com"},
+    ):
+        client = TestClient(app)
+        res = client.get(
+            f"/api/projects/{PROJECT_A}/keywords/cluster",
+            headers=_auth_headers(),
+        )
+
+    assert res.status_code == 404
