@@ -160,12 +160,26 @@ export function CompetitorAnalysisReportView({
           <p className="text-lg font-semibold">{report.keyword}</p>
         </div>
         <div>
+          <p className="text-xs text-muted-foreground">Results for</p>
+          <p className="text-lg font-semibold">
+            {report.location_applied?.trim()
+              ? report.location_applied
+              : "Global results"}
+          </p>
+        </div>
+        <div>
           <p className="text-xs text-muted-foreground">Results</p>
           <p className="text-lg font-semibold tabular-nums">
             {okCount}/{requested} succeeded
           </p>
         </div>
       </div>
+
+      {report.note && (
+        <p className="text-sm text-amber-700 dark:text-amber-300" role="status">
+          {report.note}
+        </p>
+      )}
 
       <p className="text-sm text-muted-foreground break-all">
         Your page: {report.user_page_url}

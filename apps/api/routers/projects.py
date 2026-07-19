@@ -81,6 +81,7 @@ class KeywordClusterCreate(BaseModel):
 class CompetitorAnalysisCreate(BaseModel):
     keyword: str = Field(min_length=1)
     user_page_url: str = Field(min_length=1)
+    location: str | None = Field(default=None, max_length=100)
 
 
 def slugify(name: str) -> str:
@@ -1078,15 +1079,51 @@ async def create_competitor_analysis(
     await _require_owned_project(db, project_id, current_user["id"])
     check_competitor_rate_limit(current_user["id"])
 
+    location = None
+    if body.location is not None:
+        cleaned = "".join(
+            ch for ch in body.location if ord(ch) >= 32 and ch != "\x7f"
+        ).strip()[:100]
+        location = cleaned or None
+
     try:
         row = await db.fetchrow(
             """INSERT INTO public.competitor_analyses
-               (project_id, keyword, user_page_url, status)
-               VALUES ($1, $2, $3, 'pending') RETURNING *""",
+               (project_id, keyword, user_page_url, location, status)
+               VALUES ($1, $2, $3, $4, 'pending') RETURNING *""",
             project_id,
             body.keyword.strip(),
             body.user_page_url.strip(),
+            location,
         )
+    except asyncpg.UndefinedColumnError:
+        # Migration 0010 not applied yet — ignore location column
+        if location:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Location filter requires migration "
+                    "0010_competitor_analysis_location.sql (supabase db push)."
+                ),
+            ) from None
+        try:
+            row = await db.fetchrow(
+                """INSERT INTO public.competitor_analyses
+                   (project_id, keyword, user_page_url, status)
+                   VALUES ($1, $2, $3, 'pending') RETURNING *""",
+                project_id,
+                body.keyword.strip(),
+                body.user_page_url.strip(),
+            )
+        except asyncpg.UndefinedTableError:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Competitor analysis tables are missing. Apply migration "
+                    "0004_competitor_analyses.sql (supabase db push or "
+                    "python apps/api/scripts/apply_competitor_migration.py)."
+                ),
+            ) from None
     except asyncpg.UndefinedTableError:
         raise HTTPException(
             status_code=503,

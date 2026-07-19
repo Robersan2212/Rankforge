@@ -4,6 +4,7 @@ import os
 from datetime import datetime, timedelta, timezone
 
 import asyncpg
+from fastapi import HTTPException
 
 from apps.api.services.competitor_analysis import extract_page
 from apps.api.services.content_gap import compute_content_gap
@@ -84,6 +85,15 @@ async def run_competitor_analysis(analysis_id: str) -> None:
 
         keyword = row["keyword"]
         user_page_url = row["user_page_url"]
+        location = None
+        try:
+            location = row["location"]
+        except (KeyError, TypeError):
+            location = None
+        if isinstance(location, str):
+            location = location.strip() or None
+        else:
+            location = None
 
         await db.execute(
             """UPDATE public.competitor_analyses
@@ -92,8 +102,10 @@ async def run_competitor_analysis(analysis_id: str) -> None:
             analysis_id,
         )
 
-        serp_data = await get_top_results(keyword, count=10)
+        serp_data = await get_top_results(keyword, count=10, location=location)
         serp_results = serp_data.get("results", [])
+        location_applied = serp_data.get("location_applied")
+        serp_note = serp_data.get("note")
 
         batch_input = [
             {
@@ -150,6 +162,7 @@ async def run_competitor_analysis(analysis_id: str) -> None:
         report = {
             "keyword": keyword,
             "user_page_url": user_page_url,
+            "location_applied": location_applied,
             "requested_at": row["created_at"].isoformat()
             if row["created_at"]
             else datetime.now(timezone.utc).isoformat(),
@@ -159,6 +172,8 @@ async def run_competitor_analysis(analysis_id: str) -> None:
             "content_gap": content_gap,
             "user_page": user_page,
         }
+        if serp_note:
+            report["note"] = serp_note
 
         await db.execute(
             """UPDATE public.competitor_analyses
@@ -170,12 +185,17 @@ async def run_competitor_analysis(analysis_id: str) -> None:
         )
     except Exception as exc:
         logger.exception("Competitor analysis %s failed", analysis_id)
+        if isinstance(exc, HTTPException):
+            detail = exc.detail
+            error_message = detail if isinstance(detail, str) else str(detail)
+        else:
+            error_message = str(exc)
         await db.execute(
             """UPDATE public.competitor_analyses
                SET status = 'failed', error = $2, completed_at = now()
                WHERE id = $1""",
             analysis_id,
-            str(exc)[:500],
+            error_message[:500],
         )
     finally:
         await db.close()

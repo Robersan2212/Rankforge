@@ -3,6 +3,7 @@ export type SerpErrorCode =
   | "SERP_RATE_LIMITED"
   | "SERP_NO_RESULTS"
   | "SERP_INVALID_KEY"
+  | "SERP_INVALID_LOCATION"
   | "INVALID_KEYWORD";
 
 export class SerpError extends Error {
