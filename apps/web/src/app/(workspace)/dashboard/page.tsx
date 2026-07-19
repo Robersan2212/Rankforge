@@ -1,7 +1,7 @@
 import { DashboardView } from "@/components/workspace/organisms/dashboard-view";
 import { fetchFromApi } from "@/lib/api-server";
 import { getAuthenticatedUser } from "@/lib/server-auth";
-import type { Project, UserStats } from "@/lib/types";
+import type { Project, SeoPerformance, UserStats } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -13,16 +13,23 @@ const EMPTY_STATS: UserStats = {
   keywords: 0,
 };
 
+const EMPTY_SEO_PERFORMANCE: SeoPerformance = {
+  points: [],
+  summary: { audit_count: 0, average_score: null, latest_score: null },
+};
+
 export default async function DashboardPage() {
   const user = await getAuthenticatedUser();
 
   let projects: Project[] = [];
   let stats: UserStats = EMPTY_STATS;
+  let seoPerformance: SeoPerformance = EMPTY_SEO_PERFORMANCE;
 
   try {
-    const [projectsRes, statsRes] = await Promise.all([
+    const [projectsRes, statsRes, seoRes] = await Promise.all([
       fetchFromApi("/api/projects"),
       fetchFromApi("/api/projects/stats"),
+      fetchFromApi("/api/projects/seo-performance"),
     ]);
     if (projectsRes.ok) {
       projects = await projectsRes.json();
@@ -30,15 +37,20 @@ export default async function DashboardPage() {
     if (statsRes.ok) {
       stats = await statsRes.json();
     }
+    if (seoRes.ok) {
+      seoPerformance = await seoRes.json();
+    }
   } catch {
     projects = [];
     stats = EMPTY_STATS;
+    seoPerformance = EMPTY_SEO_PERFORMANCE;
   }
 
   return (
     <DashboardView
       projects={projects}
       stats={stats}
+      seoPerformance={seoPerformance}
       userEmail={user?.email ?? "Signed in"}
     />
   );

@@ -222,6 +222,55 @@ async def get_user_stats(
     return dict(row)
 
 
+@router.get("/seo-performance")
+async def get_seo_performance(
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """FR-02 dashboard: SEO audit score trend across the user's projects."""
+    rows = await db.fetch(
+        """
+        SELECT
+          a.id,
+          a.project_id,
+          p.name AS project_name,
+          a.url,
+          a.seo_score,
+          COALESCE(a.fetched_at, a.created_at) AS audited_at
+        FROM public.audits a
+        JOIN public.projects p ON p.id = a.project_id
+        WHERE p.user_id = $1
+        ORDER BY COALESCE(a.fetched_at, a.created_at) ASC
+        LIMIT 100
+        """,
+        current_user["id"],
+    )
+
+    points = [
+        {
+            "id": str(row["id"]),
+            "project_id": str(row["project_id"]),
+            "project_name": row["project_name"],
+            "url": row["url"],
+            "seo_score": int(row["seo_score"] or 0),
+            "audited_at": (
+                row["audited_at"].isoformat()
+                if row["audited_at"] is not None
+                else None
+            ),
+        }
+        for row in rows
+    ]
+
+    scores = [p["seo_score"] for p in points]
+    summary = {
+        "audit_count": len(scores),
+        "average_score": round(sum(scores) / len(scores), 1) if scores else None,
+        "latest_score": scores[-1] if scores else None,
+    }
+    return {"points": points, "summary": summary}
+
+
 @router.get("")
 async def list_projects(
     current_user=Depends(get_current_user),
@@ -773,6 +822,29 @@ async def create_project_keyword(
     return data
 
 
+def _keyword_cluster_job_payload(row) -> dict:
+    result = row["result"]
+    if isinstance(result, str):
+        result = json.loads(result)
+    job_id = str(row["id"])
+    if isinstance(result, dict) and result.get("clusters") is not None:
+        payload = dict(result)
+        payload["jobId"] = job_id
+        payload["status"] = row["status"]
+        payload["seedKeyword"] = row["seed_keyword"]
+        if row["error"] and not payload.get("error"):
+            payload["error"] = row["error"]
+        return payload
+
+    return {
+        "jobId": job_id,
+        "status": row["status"],
+        "seedKeyword": row["seed_keyword"],
+        "clusters": [],
+        "error": row["error"],
+    }
+
+
 @router.post("/{project_id}/keywords/cluster", status_code=202)
 async def create_keyword_cluster_job(
     project_id: str,
@@ -811,6 +883,34 @@ async def create_keyword_cluster_job(
     return {"jobId": job_id}
 
 
+@router.get("/{project_id}/keywords/cluster")
+async def get_latest_keyword_cluster_job(
+    project_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Return the most recent cluster job for this project (if any)."""
+    await _require_owned_project(db, project_id, current_user["id"])
+    try:
+        row = await db.fetchrow(
+            """SELECT * FROM public.keyword_cluster_jobs
+               WHERE project_id = $1
+               ORDER BY created_at DESC
+               LIMIT 1""",
+            project_id,
+        )
+    except asyncpg.UndefinedTableError:
+        raise HTTPException(
+            status_code=503,
+            detail="Keyword clustering tables are missing. Apply migration 0009_keyword_clustering.sql.",
+        ) from None
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="No cluster jobs for this project")
+
+    return _keyword_cluster_job_payload(row)
+
+
 @router.get("/{project_id}/keywords/cluster/{job_id}")
 async def get_keyword_cluster_job(
     project_id: str,
@@ -835,23 +935,7 @@ async def get_keyword_cluster_job(
     if row is None:
         raise HTTPException(status_code=404, detail="Cluster job not found")
 
-    result = row["result"]
-    if isinstance(result, str):
-        result = json.loads(result)
-    if isinstance(result, dict) and result.get("clusters") is not None:
-        payload = dict(result)
-        payload["status"] = row["status"]
-        payload["seedKeyword"] = row["seed_keyword"]
-        if row["error"] and not payload.get("error"):
-            payload["error"] = row["error"]
-        return payload
-
-    return {
-        "status": row["status"],
-        "seedKeyword": row["seed_keyword"],
-        "clusters": [],
-        "error": row["error"],
-    }
+    return _keyword_cluster_job_payload(row)
 
 
 @router.delete("/{project_id}/keywords/{keyword_id}", status_code=204)

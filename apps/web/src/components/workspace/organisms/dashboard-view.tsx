@@ -10,15 +10,26 @@ import { DashboardMetricRow } from "@/components/workspace/organisms/metric-row"
 import { RecentActivityList } from "@/components/workspace/organisms/recent-activity-list";
 import { SeoChartPanel } from "@/components/workspace/organisms/seo-chart-panel";
 import { WorkspaceHeader } from "@/components/workspace/organisms/workspace-header";
-import type { Project, UserStats } from "@/lib/types";
+import type { Project, SeoPerformance, UserStats } from "@/lib/types";
 
 interface DashboardViewProps {
   projects: Project[];
   stats: UserStats;
+  seoPerformance: SeoPerformance;
   userEmail: string;
 }
 
-export function DashboardView({ projects, stats, userEmail }: DashboardViewProps) {
+const EMPTY_SEO_PERFORMANCE: SeoPerformance = {
+  points: [],
+  summary: { audit_count: 0, average_score: null, latest_score: null },
+};
+
+export function DashboardView({
+  projects,
+  stats,
+  seoPerformance = EMPTY_SEO_PERFORMANCE,
+  userEmail,
+}: DashboardViewProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -79,7 +90,10 @@ export function DashboardView({ projects, stats, userEmail }: DashboardViewProps
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <SeoChartPanel />
+          <SeoChartPanel
+            data={seoPerformance}
+            firstProjectId={filteredProjects[0]?.id ?? projects[0]?.id}
+          />
         </div>
         <RecentActivityList projects={filteredProjects} />
       </div>
